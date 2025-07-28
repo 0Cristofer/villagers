@@ -1,0 +1,28 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Villagers.GameServer", "game-server\Villagers.GameServer.csproj", "{2946D7A5-6152-45B8-AEE6-F55B573580E8}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Villagers.Api", "api\Villagers.Api.csproj", "{BCED1D6F-5BA4-49C1-B06D-0211CA15EC37}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{2946D7A5-6152-45B8-AEE6-F55B573580E8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2946D7A5-6152-45B8-AEE6-F55B573580E8}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2946D7A5-6152-45B8-AEE6-F55B573580E8}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2946D7A5-6152-45B8-AEE6-F55B573580E8}.Release|Any CPU.Build.0 = Release|Any CPU
+		{BCED1D6F-5BA4-49C1-B06D-0211CA15EC37}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BCED1D6F-5BA4-49C1-B06D-0211CA15EC37}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BCED1D6F-5BA4-49C1-B06D-0211CA15EC37}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BCED1D6F-5BA4-49C1-B06D-0211CA15EC37}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal
