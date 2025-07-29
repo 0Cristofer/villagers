@@ -1,157 +1,136 @@
-import { useState, useEffect } from 'react';
-import { HubConnectionBuilder } from '@microsoft/signalr';
-import { TypedHubConnection, GameState, Village, GameClientMethods } from './types/signalr';
-import { BuildBuildingRequest, RecruitTroopsRequest, ApiResponse } from './types/api';
-import Login from './components/Login';
+import React, { useState, useEffect } from 'react';
+import { HubConnectionBuilder, HubConnection } from '@microsoft/signalr';
 import './App.css';
 
+interface WorldState {
+  name: string;
+  tickNumber: number;
+  timestamp: string;
+  message: string;
+}
+
 function App() {
-  const [connection, setConnection] = useState<TypedHubConnection | null>(null);
-  const [gameState, setGameState] = useState<GameState | null>(null);
+  const [connection, setConnection] = useState<HubConnection | null>(null);
+  const [worldState, setWorldState] = useState<WorldState | null>(null);
   const [connectionStatus, setConnectionStatus] = useState<string>('Disconnected');
-  const [village, setVillage] = useState<Village | null>(null);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [username, setUsername] = useState<string | null>(null);
+  const [message, setMessage] = useState<string>('');
+  const [playerId, setPlayerId] = useState<string>('Player1');
 
   useEffect(() => {
-    // Always start with login screen for development
+    // Connect to game server SignalR hub
+    const newConnection = new HubConnectionBuilder()
+      .withUrl('http://localhost:5033/gamehub')
+      .build();
+
+    setConnection(newConnection);
+
+    newConnection.start()
+      .then(() => {
+        console.log('Connected to Game Server!');
+        setConnectionStatus('Connected');
+
+        // Listen for world updates
+        newConnection.on('WorldUpdate', (state: WorldState) => {
+          console.log('Received world update:', state);
+          setWorldState(state);
+        });
+      })
+      .catch(e => {
+        console.log('Connection failed: ', e);
+        setConnectionStatus('Failed');
+      });
+
+    return () => {
+      newConnection.stop();
+    };
   }, []);
 
-  useEffect(() => {
-    if (isLoggedIn) {
-      const newConnection = new HubConnectionBuilder()
-        .withUrl('http://localhost:5033/gamehub')
-        .build() as TypedHubConnection;
-
-      setConnection(newConnection);
-    }
-  }, [isLoggedIn]);
-
-  useEffect(() => {
-    if (connection && isLoggedIn) {
-      connection.start()
-        .then(() => {
-          console.log('Connected to Game Server!');
-          setConnectionStatus('Connected');
-
-          connection.on(GameClientMethods.GameStateUpdate, (state: GameState) => {
-            setGameState(state);
-          });
-
-          connection.on(GameClientMethods.NotificationUpdate, (message: string) => {
-            console.log('Notification:', message);
-          });
-        })
-        .catch(e => {
-          console.log('Connection failed: ', e);
-          setConnectionStatus('Failed');
-        });
-    }
-  }, [connection, isLoggedIn]);
-
-  useEffect(() => {
-    // Load village data from API after login
-    if (isLoggedIn) {
-      fetch('http://localhost:3001/api/game/village/1')
-        .then(res => res.json())
-        .then((data: Village) => setVillage(data))
-        .catch(err => console.error('Failed to load village:', err));
-    }
-  }, [isLoggedIn]);
-
-  const buildBarracks = async () => {
+  const sendTestCommand = async () => {
     try {
-      const request: BuildBuildingRequest = { buildingType: 'Barracks' };
-      
-      const response = await fetch('http://localhost:3001/api/game/village/1/build', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(request)
-      });
-      
-      if (response.ok) {
-        const result: ApiResponse = await response.json();
-        console.log('Build command sent successfully:', result.message);
-      }
-    } catch (error) {
-      console.error('Failed to send build command:', error);
-    }
-  };
-
-  const recruitSpearmen = async () => {
-    try {
-      const request: RecruitTroopsRequest = { 
-        troopType: 'Spearman', 
-        quantity: 5 
+      const request = {
+        playerId: playerId,
+        message: message
       };
-      
-      const response = await fetch('http://localhost:3001/api/game/village/1/recruit', {
+
+      const response = await fetch('http://localhost:3001/api/command/test', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(request)
       });
-      
+
       if (response.ok) {
-        const result: ApiResponse = await response.json();
-        console.log('Recruit command sent successfully:', result.message);
+        console.log('Test command sent successfully');
+        setMessage(''); // Clear the input
+      } else {
+        console.error('Failed to send test command');
       }
     } catch (error) {
-      console.error('Failed to send recruit command:', error);
+      console.error('Error sending test command:', error);
     }
   };
-
-  const handleLogin = (loggedInUsername: string) => {
-    setUsername(loggedInUsername);
-    setIsLoggedIn(true);
-  };
-
-  const handleLogout = () => {
-    setUsername(null);
-    setIsLoggedIn(false);
-    setVillage(null);
-    if (connection) {
-      connection.stop();
-    }
-  };
-
-  if (!isLoggedIn) {
-    return <Login onLogin={handleLogin} />;
-  }
 
   return (
     <div className="App">
       <header className="App-header">
-        <h1>Villagers</h1>
+        <h1>Villagers Game</h1>
         
         <div style={{ marginBottom: '20px' }}>
-          <p>Player: <strong>{username}</strong> | <button onClick={handleLogout} style={{ marginLeft: '10px' }}>Logout</button></p>
           <p>Game Server: <strong>{connectionStatus}</strong></p>
-          {gameState && (
-            <p>Game Tick: <strong>{gameState.tick}</strong></p>
-          )}
         </div>
 
-        {village && (
-          <div style={{ marginBottom: '20px', textAlign: 'left' }}>
-            <h3>{village.name}</h3>
-            <p>Wood: {village.resources.wood}</p>
-            <p>Clay: {village.resources.clay}</p>
-            <p>Iron: {village.resources.iron}</p>
+        {worldState && (
+          <div style={{ marginBottom: '20px', padding: '20px', border: '1px solid #ccc', borderRadius: '8px' }}>
+            <h3>World: {worldState.name}</h3>
+            <p>Tick: {worldState.tickNumber}</p>
+            <p>Message: <strong>{worldState.message || 'No message'}</strong></p>
+            <p>Last Update: {new Date(worldState.timestamp).toLocaleTimeString()}</p>
           </div>
         )}
 
-        <div>
-          <button onClick={buildBarracks} style={{ margin: '10px' }}>
-            Build Barracks
-          </button>
-          <button onClick={recruitSpearmen} style={{ margin: '10px' }}>
-            Recruit 5 Spearmen
+        <div style={{ marginBottom: '20px' }}>
+          <h4>Send Test Command</h4>
+          <div style={{ marginBottom: '10px' }}>
+            <label>
+              Player ID: 
+              <input 
+                type="text" 
+                value={playerId} 
+                onChange={(e) => setPlayerId(e.target.value)}
+                style={{ marginLeft: '10px', padding: '5px' }}
+              />
+            </label>
+          </div>
+          <div style={{ marginBottom: '10px' }}>
+            <label>
+              Message: 
+              <input 
+                type="text" 
+                value={message} 
+                onChange={(e) => setMessage(e.target.value)}
+                placeholder="Enter test message"
+                style={{ marginLeft: '10px', padding: '5px', width: '200px' }}
+              />
+            </label>
+          </div>
+          <button 
+            onClick={sendTestCommand}
+            disabled={!message.trim()}
+            style={{ 
+              padding: '10px 20px', 
+              backgroundColor: message.trim() ? '#007bff' : '#ccc',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: message.trim() ? 'pointer' : 'not-allowed'
+            }}
+          >
+            Send Test Command
           </button>
         </div>
 
         <p style={{ fontSize: '14px', marginTop: '20px' }}>
-          Commands go through Lambda API → Game Server<br/>
-          Real-time updates come from Game Server via SignalR
+          Commands: Frontend → API → Game Server<br/>
+          Updates: Game Server → SignalR → Frontend
         </p>
       </header>
     </div>

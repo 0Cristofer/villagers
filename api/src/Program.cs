@@ -5,7 +5,7 @@ var builder = WebApplication.CreateBuilder(args);
 // Add services to the container
 builder.Services.AddControllers();
 builder.Services.AddHttpClient();
-builder.Services.AddScoped<IGameServerService, GameServerService>();
+builder.Services.AddScoped<ICommandService, CommandService>();
 
 // Configure CORS for frontend
 builder.Services.AddCors(options =>
