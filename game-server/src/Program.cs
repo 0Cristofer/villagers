@@ -5,7 +5,9 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container
 builder.Services.AddSignalR();
-builder.Services.AddHostedService<GameSimulationService>();
+builder.Services.AddSingleton<IGameSimulationService, GameSimulationService>();
+builder.Services.AddHostedService(provider => 
+    provider.GetRequiredService<IGameSimulationService>());
 builder.Services.AddControllers();
 
 // Add CORS for client connections
