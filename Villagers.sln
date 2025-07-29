@@ -7,6 +7,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Villagers.GameServer", "gam
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Villagers.Api", "api\Villagers.Api.csproj", "{BCED1D6F-5BA4-49C1-B06D-0211CA15EC37}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Villagers.GameServer.Tests", "game-server.tests\Villagers.GameServer.Tests.csproj", "{FE908589-44B5-4E41-9A0D-F628F43A3158}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Villagers.Api.Tests", "api.tests\Villagers.Api.Tests.csproj", "{17C97EF8-FA9E-4DEA-9B74-48DBF2F31051}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -24,5 +28,13 @@ Global
 		{BCED1D6F-5BA4-49C1-B06D-0211CA15EC37}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{BCED1D6F-5BA4-49C1-B06D-0211CA15EC37}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{BCED1D6F-5BA4-49C1-B06D-0211CA15EC37}.Release|Any CPU.Build.0 = Release|Any CPU
+		{FE908589-44B5-4E41-9A0D-F628F43A3158}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{FE908589-44B5-4E41-9A0D-F628F43A3158}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{FE908589-44B5-4E41-9A0D-F628F43A3158}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{FE908589-44B5-4E41-9A0D-F628F43A3158}.Release|Any CPU.Build.0 = Release|Any CPU
+		{17C97EF8-FA9E-4DEA-9B74-48DBF2F31051}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{17C97EF8-FA9E-4DEA-9B74-48DBF2F31051}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{17C97EF8-FA9E-4DEA-9B74-48DBF2F31051}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{17C97EF8-FA9E-4DEA-9B74-48DBF2F31051}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal
