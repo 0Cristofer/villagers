@@ -1,13 +1,30 @@
+using Microsoft.EntityFrameworkCore;
 using Villagers.GameServer;
+using Villagers.GameServer.Infrastructure.Data;
+using Villagers.GameServer.Infrastructure.Repositories;
 using Villagers.GameServer.Services;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Add database
+builder.Services.AddDbContext<GameDbContext>(options =>
+    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+// Add repositories
+builder.Services.AddScoped<IWorldStateRepository, WorldStateRepository>();
+builder.Services.AddScoped<ICommandRepository, CommandRepository>();
 
 // Add services to the container
 builder.Services.AddSignalR();
 builder.Services.AddSingleton<IGameSimulationService, GameSimulationService>();
 builder.Services.AddHostedService(provider => 
     provider.GetRequiredService<IGameSimulationService>());
+
+// Add persistence services
+builder.Services.AddScoped<IPersistenceService, PersistenceService>();
+builder.Services.AddSingleton<PersistenceBackgroundService>();
+builder.Services.AddHostedService(provider => provider.GetRequiredService<PersistenceBackgroundService>());
+
 builder.Services.AddControllers();
 
 // Add CORS for client connections

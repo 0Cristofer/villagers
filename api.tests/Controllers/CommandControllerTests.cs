@@ -5,7 +5,9 @@ using Microsoft.Extensions.Logging;
 using Moq;
 using Villagers.Api.Controllers;
 using Villagers.Api.Controllers.Requests;
+using Villagers.Api.Infrastructure.Repositories;
 using Villagers.Api.Services;
+using Villagers.Shared.Entities;
 using Xunit;
 
 namespace Villagers.Api.Tests.Controllers;
@@ -14,13 +16,18 @@ public class CommandControllerTests
 {
     private readonly Mock<ILogger<CommandController>> _loggerMock;
     private readonly Mock<ICommandService> _commandServiceMock;
+    private readonly Mock<ICommandRepository> _commandRepositoryMock;
     private readonly CommandController _controller;
 
     public CommandControllerTests()
     {
         _loggerMock = new Mock<ILogger<CommandController>>();
         _commandServiceMock = new Mock<ICommandService>();
-        _controller = new CommandController(_loggerMock.Object, _commandServiceMock.Object);
+        _commandRepositoryMock = new Mock<ICommandRepository>();
+        _controller = new CommandController(
+            _loggerMock.Object, 
+            _commandServiceMock.Object,
+            _commandRepositoryMock.Object);
     }
 
     [Fact]
@@ -33,6 +40,18 @@ public class CommandControllerTests
             Message = "Test message"
         };
 
+        var persistedCommand = new Command
+        {
+            Id = Guid.NewGuid(),
+            Type = "TestCommand",
+            PlayerId = request.PlayerId,
+            Status = CommandStatus.Pending
+        };
+
+        _commandRepositoryMock
+            .Setup(x => x.CreateAsync(It.IsAny<Command>()))
+            .ReturnsAsync(persistedCommand);
+
         _commandServiceMock
             .Setup(x => x.SendTestCommandAsync(It.IsAny<TestCommandRequest>()))
             .ReturnsAsync(true);
@@ -43,8 +62,11 @@ public class CommandControllerTests
         // Assert
         result.Should().BeOfType<OkObjectResult>();
         var okResult = result as OkObjectResult;
-        okResult!.Value.Should().BeEquivalentTo(new { status = "Command sent to game server" });
+        var responseValue = JsonSerializer.Serialize(okResult!.Value);
+        responseValue.Should().Contain("Command sent to game server");
+        responseValue.Should().Contain(persistedCommand.Id.ToString());
 
+        _commandRepositoryMock.Verify(x => x.CreateAsync(It.IsAny<Command>()), Times.Once);
         _commandServiceMock.Verify(x => x.SendTestCommandAsync(request), Times.Once);
     }
 
@@ -58,6 +80,22 @@ public class CommandControllerTests
             Message = "Another test message"
         };
 
+        var persistedCommand = new Command
+        {
+            Id = Guid.NewGuid(),
+            Type = "TestCommand",
+            PlayerId = request.PlayerId,
+            Status = CommandStatus.Pending
+        };
+
+        _commandRepositoryMock
+            .Setup(x => x.CreateAsync(It.IsAny<Command>()))
+            .ReturnsAsync(persistedCommand);
+
+        _commandRepositoryMock
+            .Setup(x => x.UpdateStatusAsync(It.IsAny<Guid>(), CommandStatus.Failed, It.IsAny<string>()))
+            .ReturnsAsync(persistedCommand);
+
         _commandServiceMock
             .Setup(x => x.SendTestCommandAsync(It.IsAny<TestCommandRequest>()))
             .ReturnsAsync(false);
@@ -70,6 +108,9 @@ public class CommandControllerTests
         var objectResult = result as ObjectResult;
         objectResult!.StatusCode.Should().Be(500);
         objectResult.Value.Should().BeEquivalentTo(new { error = "Failed to send command to game server" });
+        
+        _commandRepositoryMock.Verify(x => x.CreateAsync(It.IsAny<Command>()), Times.Once);
+        _commandRepositoryMock.Verify(x => x.UpdateStatusAsync(persistedCommand.Id, CommandStatus.Failed, "Failed to send to game server"), Times.Once);
     }
 
     [Fact]
@@ -81,6 +122,18 @@ public class CommandControllerTests
             PlayerId = "player789",
             Message = "Log test message"
         };
+
+        var persistedCommand = new Command
+        {
+            Id = Guid.NewGuid(),
+            Type = "TestCommand",
+            PlayerId = request.PlayerId,
+            Status = CommandStatus.Pending
+        };
+
+        _commandRepositoryMock
+            .Setup(x => x.CreateAsync(It.IsAny<Command>()))
+            .ReturnsAsync(persistedCommand);
 
         _commandServiceMock
             .Setup(x => x.SendTestCommandAsync(It.IsAny<TestCommandRequest>()))
@@ -95,6 +148,15 @@ public class CommandControllerTests
                 LogLevel.Information,
                 It.IsAny<EventId>(),
                 It.Is<It.IsAnyType>((o, t) => o.ToString()!.Contains("API received test command from player")),
+                It.IsAny<Exception>(),
+                It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
+            Times.Once);
+            
+        _loggerMock.Verify(
+            x => x.Log(
+                LogLevel.Information,
+                It.IsAny<EventId>(),
+                It.Is<It.IsAnyType>((o, t) => o.ToString()!.Contains("Command") && o.ToString()!.Contains("persisted to database")),
                 It.IsAny<Exception>(),
                 It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
             Times.Once);

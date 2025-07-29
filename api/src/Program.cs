@@ -1,6 +1,17 @@
+using Microsoft.EntityFrameworkCore;
+using Villagers.Api.Infrastructure.Data;
+using Villagers.Api.Infrastructure.Repositories;
 using Villagers.Api.Services;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Add database
+builder.Services.AddDbContext<ApiDbContext>(options =>
+    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+// Add repositories
+builder.Services.AddScoped<IPlayerRepository, PlayerRepository>();
+builder.Services.AddScoped<ICommandRepository, CommandRepository>();
 
 // Add services to the container
 builder.Services.AddControllers();
