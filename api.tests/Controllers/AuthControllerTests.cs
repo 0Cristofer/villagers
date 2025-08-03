@@ -280,6 +280,115 @@ public class AuthControllerTests
 
     #endregion
 
+    #region ValidateToken Tests
+
+    [Fact]
+    public async Task ValidateToken_WithValidTokenAndExistingUser_ShouldReturnOkWithPlayerData()
+    {
+        // Arrange
+        var playerId = Guid.NewGuid();
+        var playerEntity = new PlayerEntity 
+        { 
+            Id = playerId, 
+            UserName = "testuser",
+            RegisteredWorldIds = [1, 2, 3]
+        };
+
+        // Mock User.FindFirst to return the player ID claim
+        var claimsPrincipal = new System.Security.Claims.ClaimsPrincipal(
+            new System.Security.Claims.ClaimsIdentity(new[]
+            {
+                new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.NameIdentifier, playerId.ToString())
+            }));
+
+        _controller.ControllerContext = new Microsoft.AspNetCore.Mvc.ControllerContext
+        {
+            HttpContext = new Microsoft.AspNetCore.Http.DefaultHttpContext
+            {
+                User = claimsPrincipal
+            }
+        };
+
+        _userManagerMock.Setup(x => x.FindByIdAsync(playerId.ToString()))
+                       .ReturnsAsync(playerEntity);
+
+        // Act
+        var result = await _controller.ValidateToken();
+
+        // Assert
+        result.Should().BeOfType<OkObjectResult>();
+        var okResult = result as OkObjectResult;
+        var response = okResult!.Value;
+        
+        response.Should().NotBeNull();
+        var responseJson = System.Text.Json.JsonSerializer.Serialize(response);
+        responseJson.Should().Contain("\"Valid\":true");
+        responseJson.Should().Contain(playerId.ToString());
+        responseJson.Should().Contain("testuser");
+    }
+
+    [Fact]
+    public async Task ValidateToken_WithNonExistentUser_ShouldReturnUnauthorized()
+    {
+        // Arrange
+        var playerId = Guid.NewGuid();
+        var claimsPrincipal = new System.Security.Claims.ClaimsPrincipal(
+            new System.Security.Claims.ClaimsIdentity(new[]
+            {
+                new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.NameIdentifier, playerId.ToString())
+            }));
+
+        _controller.ControllerContext = new Microsoft.AspNetCore.Mvc.ControllerContext
+        {
+            HttpContext = new Microsoft.AspNetCore.Http.DefaultHttpContext
+            {
+                User = claimsPrincipal
+            }
+        };
+
+        _userManagerMock.Setup(x => x.FindByIdAsync(playerId.ToString()))
+                       .ReturnsAsync((PlayerEntity?)null);
+
+        // Act
+        var result = await _controller.ValidateToken();
+
+        // Assert
+        result.Should().BeOfType<UnauthorizedObjectResult>();
+        var unauthorizedResult = result as UnauthorizedObjectResult;
+        unauthorizedResult!.Value.Should().Be("User no longer exists");
+    }
+
+    [Fact]
+    public async Task ValidateToken_WithInvalidClaims_ShouldReturnUnauthorized()
+    {
+        // Arrange
+        var claimsPrincipal = new System.Security.Claims.ClaimsPrincipal(
+            new System.Security.Claims.ClaimsIdentity(new[]
+            {
+                new System.Security.Claims.Claim("SomeOtherClaim", "value")
+            }));
+
+        _controller.ControllerContext = new Microsoft.AspNetCore.Mvc.ControllerContext
+        {
+            HttpContext = new Microsoft.AspNetCore.Http.DefaultHttpContext
+            {
+                User = claimsPrincipal
+            }
+        };
+
+        // Act
+        var result = await _controller.ValidateToken();
+
+        // Assert
+        result.Should().BeOfType<UnauthorizedObjectResult>();
+        var unauthorizedResult = result as UnauthorizedObjectResult;
+        unauthorizedResult!.Value.Should().Be("Invalid token claims");
+        
+        _userManagerMock.Verify(x => x.FindByIdAsync(It.IsAny<string>()), Times.Never);
+    }
+
+    #endregion
+
     #region Helper Methods
 
     private static Mock<UserManager<PlayerEntity>> CreateUserManagerMock()

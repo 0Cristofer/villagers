@@ -1,3 +1,5 @@
+using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Villagers.Api.Entities;
@@ -99,6 +101,29 @@ public class AuthController : ControllerBase
             Token = token,
             Player = domainPlayer.ToModel(),
             ExpiresAt = expiresAt
+        });
+    }
+
+    [HttpPost("validate")]
+    [Authorize]
+    public async Task<IActionResult> ValidateToken()
+    {
+        var playerIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (playerIdClaim == null || !Guid.TryParse(playerIdClaim, out var playerId))
+        {
+            return Unauthorized("Invalid token claims");
+        }
+
+        var playerEntity = await _userManager.FindByIdAsync(playerId.ToString());
+        if (playerEntity == null)
+        {
+            return Unauthorized("User no longer exists");
+        }
+
+        var domainPlayer = playerEntity.ToDomain();
+        return Ok(new { 
+            Valid = true, 
+            Player = domainPlayer.ToModel() 
         });
     }
 }
