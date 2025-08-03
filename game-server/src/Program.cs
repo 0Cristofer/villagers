@@ -1,40 +1,45 @@
 using Villagers.GameServer;
-using Villagers.GameServer.Services;
+using Villagers.GameServer.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container
-builder.Services.AddSignalR();
-builder.Services.AddSingleton<IGameSimulationService, GameSimulationService>();
-builder.Services.AddHostedService(provider => 
-    provider.GetRequiredService<IGameSimulationService>());
-builder.Services.AddControllers();
-
-// Add CORS for client connections
-builder.Services.AddCors(options =>
-{
-    options.AddPolicy("AllowClients", policy =>
-    {
-        policy.WithOrigins("http://localhost:3000", "http://localhost:3001") // React app + API Gateway
-              .AllowAnyHeader()
-              .AllowAnyMethod()
-              .AllowCredentials();
-    });
-});
+// Add services using extension methods
+builder.Services
+    .AddDatabase(builder.Configuration)
+    .AddRepositories()
+    .AddGameServices()
+    .AddCorsPolicy(builder.Configuration);
 
 var app = builder.Build();
+
+// Global exception handling middleware
+app.Use(async (context, next) =>
+{
+    try
+    {
+        await next(context);
+    }
+    catch (Exception ex)
+    {
+        var logger = context.RequestServices.GetRequiredService<ILogger<Program>>();
+        logger.LogError(ex, "An unhandled exception occurred");
+        
+        context.Response.StatusCode = 500;
+        context.Response.ContentType = "text/plain";
+        await context.Response.WriteAsync("Server error. Please try again later.");
+    }
+});
 
 // Configure the HTTP request pipeline
 if (app.Environment.IsDevelopment())
 {
-    app.UseDeveloperExceptionPage();
+    // Note: No UseDeveloperExceptionPage() since we have custom error handling
 }
 
 app.UseHttpsRedirection();
 app.UseCors("AllowClients");
 
-// Configure API endpoints
-app.MapControllers();
+// No API endpoints needed - using SignalR only
 
 // Configure SignalR for real-time updates to clients
 app.MapHub<GameHub>("/gamehub");

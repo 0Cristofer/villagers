@@ -1,138 +1,326 @@
 import React, { useState, useEffect } from 'react';
-import { HubConnectionBuilder, HubConnection } from '@microsoft/signalr';
 import './App.css';
+import { urls } from './config/env';
 
-interface WorldState {
-  name: string;
-  tickNumber: number;
-  timestamp: string;
-  message: string;
+// Types for the API responses
+interface Player {
+  id: string;
+  username: string;
+  registeredWorldIds: number[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface AuthResponse {
+  token: string;
+  player: Player;
+  expiresAt: string;
+}
+
+interface LoginRequest {
+  username: string;
+  password: string;
+}
+
+interface RegisterRequest {
+  username: string;
+  password: string;
 }
 
 function App() {
-  const [connection, setConnection] = useState<HubConnection | null>(null);
-  const [worldState, setWorldState] = useState<WorldState | null>(null);
-  const [connectionStatus, setConnectionStatus] = useState<string>('Disconnected');
-  const [message, setMessage] = useState<string>('');
-  const [playerId, setPlayerId] = useState<string>('Player1');
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
+  const [player, setPlayer] = useState<Player | null>(null);
+  const [, setToken] = useState<string | null>(null);
+  const [username, setUsername] = useState<string>('');
+  const [password, setPassword] = useState<string>('');
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string>('');
+  const [isRegisterMode, setIsRegisterMode] = useState<boolean>(false);
 
+  // Check for existing token on component mount
   useEffect(() => {
-    // Connect to game server SignalR hub
-    const newConnection = new HubConnectionBuilder()
-      .withUrl('http://localhost:5033/gamehub')
-      .build();
-
-    setConnection(newConnection);
-
-    newConnection.start()
-      .then(() => {
-        console.log('Connected to Game Server!');
-        setConnectionStatus('Connected');
-
-        // Listen for world updates
-        newConnection.on('WorldUpdate', (state: WorldState) => {
-          console.log('Received world update:', state);
-          setWorldState(state);
-        });
-      })
-      .catch(e => {
-        console.log('Connection failed: ', e);
-        setConnectionStatus('Failed');
-      });
-
-    return () => {
-      newConnection.stop();
-    };
+    const storedToken = localStorage.getItem('villagers_token');
+    if (storedToken) {
+      validateExistingToken(storedToken);
+    }
   }, []);
 
-  const sendTestCommand = async () => {
+  const validateExistingToken = async (storedToken: string) => {
     try {
-      const request = {
-        playerId: playerId,
-        message: message
-      };
-
-      const response = await fetch('http://localhost:3001/api/command/test', {
+      setIsLoading(true);
+      const response = await fetch(urls.auth.validate, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(request)
+        headers: {
+          'Authorization': `Bearer ${storedToken}`,
+          'Content-Type': 'application/json'
+        }
       });
 
       if (response.ok) {
-        console.log('Test command sent successfully');
-        setMessage(''); // Clear the input
+        const authData: AuthResponse = await response.json();
+        setToken(authData.token);
+        setPlayer(authData.player);
+        setIsLoggedIn(true);
+        localStorage.setItem('villagers_token', authData.token);
       } else {
-        console.error('Failed to send test command');
+        // Token is invalid, remove it
+        localStorage.removeItem('villagers_token');
       }
     } catch (error) {
-      console.error('Error sending test command:', error);
+      console.error('Token validation failed:', error);
+      localStorage.removeItem('villagers_token');
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  return (
-    <div className="App">
-      <header className="App-header">
-        <h1>Villagers Game</h1>
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!username.trim() || !password.trim()) return;
+
+    setIsLoading(true);
+    setError('');
+
+    try {
+      const loginRequest: LoginRequest = { 
+        username: username.trim(),
+        password: password.trim()
+      };
+      
+      const response = await fetch(urls.auth.login, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(loginRequest)
+      });
+
+      if (response.ok) {
+        const authData: AuthResponse = await response.json();
+        setToken(authData.token);
+        setPlayer(authData.player);
+        setIsLoggedIn(true);
         
-        <div style={{ marginBottom: '20px' }}>
-          <p>Game Server: <strong>{connectionStatus}</strong></p>
-        </div>
+        // Store token for future sessions
+        localStorage.setItem('villagers_token', authData.token);
+      } else {
+        // Handle different response types
+        const errorText = await response.text();
+        try {
+          const errorData = JSON.parse(errorText);
+          setError(errorData.message || 'Login failed');
+        } catch {
+          // If it's not JSON, use the text directly (for Unauthorized responses)
+          setError(errorText || 'Login failed');
+        }
+      }
+    } catch (error) {
+      console.error('Login error:', error);
+      setError('Failed to connect to server');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-        {worldState && (
-          <div style={{ marginBottom: '20px', padding: '20px', border: '1px solid #ccc', borderRadius: '8px' }}>
-            <h3>World: {worldState.name}</h3>
-            <p>Tick: {worldState.tickNumber}</p>
-            <p>Message: <strong>{worldState.message || 'No message'}</strong></p>
-            <p>Last Update: {new Date(worldState.timestamp).toLocaleTimeString()}</p>
-          </div>
-        )}
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!username.trim() || !password.trim()) return;
 
-        <div style={{ marginBottom: '20px' }}>
-          <h4>Send Test Command</h4>
-          <div style={{ marginBottom: '10px' }}>
-            <label>
-              Player ID: 
-              <input 
-                type="text" 
-                value={playerId} 
-                onChange={(e) => setPlayerId(e.target.value)}
-                style={{ marginLeft: '10px', padding: '5px' }}
-              />
-            </label>
+    setIsLoading(true);
+    setError('');
+
+    try {
+      const registerRequest: RegisterRequest = { 
+        username: username.trim(),
+        password: password.trim()
+      };
+      
+      const response = await fetch(urls.auth.register, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(registerRequest)
+      });
+
+      if (response.ok) {
+        const authData: AuthResponse = await response.json();
+        setToken(authData.token);
+        setPlayer(authData.player);
+        setIsLoggedIn(true);
+        
+        // Store token for future sessions
+        localStorage.setItem('villagers_token', authData.token);
+      } else {
+        // Handle different response types
+        const errorText = await response.text();
+        try {
+          const errorData = JSON.parse(errorText);
+          setError(errorData.message || 'Registration failed');
+        } catch {
+          // If it's not JSON, use the text directly
+          setError(errorText || 'Registration failed');
+        }
+      }
+    } catch (error) {
+      console.error('Registration error:', error);
+      setError('Failed to connect to server');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleLogout = () => {
+    setIsLoggedIn(false);
+    setPlayer(null);
+    setToken(null);
+    setUsername('');
+    setPassword('');
+    setIsRegisterMode(false);
+    localStorage.removeItem('villagers_token');
+  };
+
+  const toggleMode = () => {
+    setIsRegisterMode(!isRegisterMode);
+    setError('');
+    setUsername('');
+    setPassword('');
+  };
+
+  const renderAuthForm = () => (
+    <div className="login-container">
+      <div className="login-form">
+        <h2>Welcome to Villagers</h2>
+        <p>{isRegisterMode ? 'Create a new account' : 'Enter your credentials to continue'}</p>
+        
+        <form onSubmit={isRegisterMode ? handleRegister : handleLogin}>
+          <div className="form-group">
+            <label htmlFor="username">Username:</label>
+            <input
+              id="username"
+              type="text"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              placeholder="Enter username"
+              disabled={isLoading}
+              autoFocus
+              minLength={3}
+              maxLength={50}
+            />
+            {isRegisterMode && (
+              <small className="form-hint">Username must be 3-50 characters</small>
+            )}
           </div>
-          <div style={{ marginBottom: '10px' }}>
-            <label>
-              Message: 
-              <input 
-                type="text" 
-                value={message} 
-                onChange={(e) => setMessage(e.target.value)}
-                placeholder="Enter test message"
-                style={{ marginLeft: '10px', padding: '5px', width: '200px' }}
-              />
-            </label>
+          
+          <div className="form-group">
+            <label htmlFor="password">Password:</label>
+            <input
+              id="password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Enter password"
+              disabled={isLoading}
+              minLength={1}
+              maxLength={100}
+            />
+            {isRegisterMode && (
+              <small className="form-hint">Password must be at least 1 character</small>
+            )}
           </div>
+          
+          {error && <div className="error-message">{error}</div>}
+          
           <button 
-            onClick={sendTestCommand}
-            disabled={!message.trim()}
-            style={{ 
-              padding: '10px 20px', 
-              backgroundColor: message.trim() ? '#007bff' : '#ccc',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: message.trim() ? 'pointer' : 'not-allowed'
-            }}
+            type="submit" 
+            disabled={isLoading || !username.trim() || !password.trim()}
+            className="login-button"
           >
-            Send Test Command
+            {isLoading 
+              ? (isRegisterMode ? 'Creating Account...' : 'Logging in...') 
+              : (isRegisterMode ? 'Create Account' : 'Login')
+            }
+          </button>
+        </form>
+        
+        <div className="auth-toggle">
+          <p>
+            {isRegisterMode ? 'Already have an account?' : "Don't have an account?"}{' '}
+            <button 
+              type="button" 
+              onClick={toggleMode}
+              className="toggle-button"
+              disabled={isLoading}
+            >
+              {isRegisterMode ? 'Login' : 'Register'}
+            </button>
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderWorldList = () => (
+    <div className="world-list-container">
+      <div className="header">
+        <h1>Villagers Game</h1>
+        <div className="user-info">
+          <span>Welcome, {player?.username}!</span>
+          <button onClick={handleLogout} className="logout-button">
+            Logout
           </button>
         </div>
+      </div>
+      
+      <div className="worlds-section">
+        <h2>Your Worlds</h2>
+        
+        {player?.registeredWorldIds && player.registeredWorldIds.length > 0 ? (
+          <div className="worlds-grid">
+            {player.registeredWorldIds.map((worldId) => (
+              <div key={worldId} className="world-card">
+                <h3>World {worldId}</h3>
+                <p>Click to enter world and start playing</p>
+                <button 
+                  className="enter-world-button"
+                  onClick={() => alert(`Entering World ${worldId} - Game mechanics coming soon!`)}
+                >
+                  Enter World
+                </button>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="no-worlds">
+            <p>You haven't joined any worlds yet.</p>
+            <p>World registration and game mechanics coming soon!</p>
+          </div>
+        )}
+      </div>
+      
+      <div className="player-details">
+        <h3>Player Details</h3>
+        <div className="details-grid">
+          <div><strong>Player ID:</strong> {player?.id}</div>
+          <div><strong>Username:</strong> {player?.username}</div>
+          <div><strong>Registered Worlds:</strong> {player?.registeredWorldIds?.length || 0}</div>
+          <div><strong>Member Since:</strong> {player?.createdAt ? new Date(player.createdAt).toLocaleDateString() : 'Unknown'}</div>
+        </div>
+      </div>
+    </div>
+  );
 
-        <p style={{ fontSize: '14px', marginTop: '20px' }}>
-          Commands: Frontend → API → Game Server<br/>
-          Updates: Game Server → SignalR → Frontend
-        </p>
-      </header>
+  // Show loading spinner during initial token validation
+  if (isLoading && !isLoggedIn && !username) {
+    return (
+      <div className="App">
+        <div className="loading-container">
+          <div className="loading-spinner"></div>
+          <p>Checking authentication...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="App">
+      {isLoggedIn && player ? renderWorldList() : renderAuthForm()}
     </div>
   );
 }

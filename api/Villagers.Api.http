@@ -1,6 +1,31 @@
-@TribalWars.Api_HostAddress = http://localhost:5084
+@Villagers.Api_HostAddress = https://localhost:3002
 
-GET {{TribalWars.Api_HostAddress}}/weatherforecast/
-Accept: application/json
+### Register a new user
+POST {{Villagers.Api_HostAddress}}/api/auth/register
+Content-Type: application/json
+
+{
+  "username": "testuser",
+  "password": "testpass"
+}
+
+### Login with existing user
+POST {{Villagers.Api_HostAddress}}/api/auth/login
+Content-Type: application/json
+
+{
+  "username": "testuser", 
+  "password": "testpass"
+}
+
+### Validate token (requires Authorization header)
+POST {{Villagers.Api_HostAddress}}/api/auth/validate
+Authorization: Bearer YOUR_JWT_TOKEN_HERE
+Content-Type: application/json
+
+### Refresh token (requires Authorization header)
+POST {{Villagers.Api_HostAddress}}/api/auth/refresh
+Authorization: Bearer YOUR_JWT_TOKEN_HERE
+Content-Type: application/json
 
 ###

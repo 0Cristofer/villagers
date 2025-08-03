@@ -5,58 +5,65 @@ This document tracks important architecture decisions and discussions for the Vi
 
 ## Current Architecture
 
-### Microservices Structure
-- **Game Server (Port 5033)**: Authoritative game simulation with ECS pattern
-- **Lambda API (Port 3001)**: Stateless HTTP API for client commands
+### Independent Services Structure
+- **Game Server (Port 5033)**: Authoritative game simulation with SignalR real-time communication
+- **API (Port 3001)**: Authentication and player management service
 - **Frontend (Port 3000)**: React TypeScript client
 
 ### Communication Flow
 ```
-Client ──HTTP──► Lambda API ──HTTP──► Game Server (ECS)
-   │                                        │
-   └──────────SignalR (real-time)──────────┘
+Client ──HTTP──► API (Auth/Player Management)
+   │
+   └──────────SignalR──────────► Game Server (Commands & Updates)
 ```
 
 ## Key Decisions
 
-### 1. Command Queue Architecture (Under Discussion)
+### 1. SignalR-Based Command Architecture ✅ **IMPLEMENTED**
 
-**Proposed Architecture:**
-- Game Server maintains in-memory command queue
-- Commands are read at the start of each tick
-- API calls server to schedule commands, receives tick number for execution
-- API persists commands with tick number to database
-- Game state persisted every N ticks/seconds
-- On crash recovery: replay commands from last persisted state
+**Current Implementation:**
+- Clients connect directly to Game Server via SignalR for real-time commands
+- Game Server maintains in-memory command queue with immediate processing
+- Commands use Guid-based player IDs for consistency
+- No HTTP API layer for game commands (removed for better performance)
 
 **Benefits:**
-- Game loop never blocks on DB operations
-- Predictable command execution order
-- Crash recovery via command replay
-- Clean separation of concerns
+- True real-time command execution
+- Eliminates API-to-GameServer HTTP overhead
+- Simplified architecture with fewer moving parts
+- Better scalability for real-time game interactions
 
 **Implementation Details:**
 ```csharp
-// Command flow
-1. Client → API: Send command
-2. API → Game Server: Queue command, get tick number
-3. API → Database: Persist command with tick number
-4. Game Server: Execute commands at designated tick
-5. Game Server → Database: Periodic state persistence
-6. API → Database: Clear old commands after state persistence
+// Direct SignalR command flow
+1. Client ──SignalR──► Game Server: Send command via hub
+2. Game Server: Queue command in memory
+3. Game Server: Process commands on each tick
+4. Game Server ──SignalR──► Clients: Broadcast updates
 ```
 
-### 2. Authentication Strategy
+### 2. Authentication Strategy ✅ **IMPLEMENTED**
 
 **Current Implementation:**
-- Simple username-based login (no password)
-- No session persistence for development
-- Login just returns player info, doesn't affect game state
+- Microsoft Identity with custom PlayerEntity (inherits IdentityUser<Guid>)
+- Username-only authentication (no email requirement)
+- JWT token-based authentication with claims
+- Token validation and refresh endpoints
+- Domain-driven architecture with Entity/Domain/Model separation
 
-**Future Enhancement:**
-- Login remains fast (no game server dependency)
-- Village creation as separate command in queue
-- Proper session management with JWT tokens
+**Implementation Details:**
+```csharp
+// Authentication flow
+1. Client ──POST──► API: /api/auth/login (username only)
+2. API: Validate user, generate JWT token
+3. API ──Response──► Client: JWT token + player info
+4. Client: Use JWT for API calls, player ID for game server
+```
+
+**Benefits:**
+- Secure token-based authentication
+- Separation of auth (API) and game logic (Game Server)
+- Scalable with standard Identity patterns
 
 ### 3. Game State Distribution
 
@@ -73,39 +80,79 @@ Client ──HTTP──► Lambda API ──HTTP──► Game Server (ECS)
 - Viewport-based updates for map
 - Public info only for distant villages
 
-## Database Strategy (To Be Implemented)
+## Database Strategy ✅ **IMPLEMENTED**
 
-### Game Server Database Approach
-1. **Load on startup**: Read entire game state into memory
-2. **In-memory operations**: All game logic uses memory objects
-3. **Periodic saves**: Persist every 30 seconds (configurable)
-4. **Immediate saves**: For critical events (login, purchases)
+### Domain-Driven Database Architecture
+- **API Database**: PostgreSQL with player authentication and management
+- **Game Server Database**: PostgreSQL with world state and command persistence
+- **Domain-Centric Repositories**: Repositories work with domain objects, not entities
+- **Entity Framework Core**: Code-first approach with migrations
+
+### Repository Pattern Implementation
+```csharp
+// Domain-centric approach
+1. Repositories expose domain objects (Player, World, Command)
+2. Internal entity-to-domain conversion via constructor chaining
+3. Clean separation: Entity (DB) ↔ Domain (Business Logic) ↔ Model (API)
+```
 
 ### Benefits
-- Maximum performance for game ticks
-- Reliability for critical events
-- Scalable architecture
+- Clean domain boundaries
+- Testable business logic
+- Database independence through abstractions
+- Configuration-driven development
+
+## Major Architectural Changes
+
+### 4. Shared Project Removal ✅ **IMPLEMENTED**
+**Decision**: Removed shared project dependency between API and Game Server
+- Each service now has independent domain models and entities
+- Eliminates coupling between services
+- Allows independent development and deployment
+- Maintains clean service boundaries
+
+### 5. Test Structure Standardization ✅ **IMPLEMENTED**
+**Decision**: Standardized test projects to use `src/` directory structure
+- `api.tests/src/` and `game-server.tests/src/` mirror main project structure
+- Consistent organization across all projects
+- Better maintainability and navigation
+
+## Current Project Structure
+```
+/
+├── api/                           # Authentication & Player Management
+│   ├── src/Domain/               # Domain models (Player)
+│   ├── src/Entities/             # Database entities (PlayerEntity)  
+│   ├── src/Controllers/          # API controllers (Auth)
+│   └── src/Data/                 # DbContext and configuration
+├── game-server/                  # Game Simulation & Real-time Communication
+│   ├── src/Domain/               # Domain models (World, Commands)
+│   ├── src/Entities/             # Database entities
+│   ├── src/Infrastructure/       # Repository implementations
+│   ├── src/Hubs/                 # SignalR hubs
+│   └── src/Services/             # Game simulation service
+├── api.tests/src/                # API tests with src structure
+├── game-server.tests/src/        # Game Server tests with src structure
+└── frontend/                     # React TypeScript client
+```
 
 ## Open Questions
 
-1. **Command Validation**: Where should validation happen?
-   - API: Basic validation (format, auth)
-   - Game Server: Game logic validation
-   
-2. **Command Results**: Should we store success/failure of commands?
+1. **Game Content**: What specific game mechanics to implement first?
+   - Village building system
+   - Resource management
+   - Player interactions
 
-3. **Database Choice**: SQLite vs PostgreSQL vs SQL Server?
+2. **Scalability**: How to handle multiple concurrent worlds?
+
+3. **Persistence Strategy**: How often should world state be persisted?
 
 4. **Event Sourcing**: Consider for future iterations?
 
 ## Next Steps
 
-1. Implement command queue system
-2. Add database persistence layer
-3. Create command replay mechanism
-4. Implement viewport-based updates
-5. Add proper player/village management
-
----
-
-*Last Updated: [Current Date]*
+1. Implement core game mechanics (villages, resources)
+2. Add viewport-based updates for efficient client synchronization  
+3. Implement proper world/village management
+4. Add comprehensive integration tests
+5. Performance optimization and monitoring
