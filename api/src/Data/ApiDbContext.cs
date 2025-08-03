@@ -8,6 +8,8 @@ namespace Villagers.Api.Data;
 
 public class ApiDbContext : IdentityDbContext<PlayerEntity, IdentityRole<Guid>, Guid>
 {
+    public DbSet<WorldRegistryEntity> WorldRegistry { get; set; }
+
     public ApiDbContext(DbContextOptions<ApiDbContext> options) : base(options)
     {
     }
@@ -36,6 +38,16 @@ public class ApiDbContext : IdentityDbContext<PlayerEntity, IdentityRole<Guid>, 
             
             entity.Property(e => e.CreatedAt).HasDefaultValueSql("NOW()");
             entity.Property(e => e.UpdatedAt).HasDefaultValueSql("NOW()");
+        });
+
+        // WorldRegistryEntity configuration with owned Config
+        modelBuilder.Entity<WorldRegistryEntity>(entity =>
+        {
+            entity.OwnsOne(e => e.Config, config =>
+            {
+                config.Property(c => c.WorldName).HasMaxLength(100).IsRequired();
+                config.Property(c => c.TickInterval).IsRequired();
+            });
         });
     }
 }
