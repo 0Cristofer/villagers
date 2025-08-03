@@ -1,37 +1,14 @@
-using Microsoft.EntityFrameworkCore;
-using Villagers.Api.Infrastructure.Data;
-using Villagers.Api.Infrastructure.Repositories;
-using Villagers.Api.Services;
+using Villagers.Api.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add database
-builder.Services.AddDbContext<ApiDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
-
-// Add repositories
-builder.Services.AddScoped<IPlayerRepository, PlayerRepository>();
-builder.Services.AddScoped<ICommandRepository, CommandRepository>();
-
-// Add services to the container
-builder.Services.AddControllers();
-builder.Services.AddHttpClient();
-builder.Services.AddScoped<ICommandService, CommandService>();
-
-// Configure CORS for frontend
-builder.Services.AddCors(options =>
-{
-    options.AddPolicy("AllowFrontend", policy =>
-    {
-        policy.WithOrigins("http://localhost:3000")
-              .AllowAnyHeader()
-              .AllowAnyMethod();
-    });
-});
-
-// Configure Swagger
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+// Add services using extension methods
+builder.Services
+    .AddDatabase(builder.Configuration)
+    .AddIdentityServices(builder.Configuration)
+    .AddJwtAuthentication(builder.Configuration)
+    .AddCorsPolicy(builder.Configuration)
+    .AddApplicationServices();
 
 var app = builder.Build();
 
@@ -44,6 +21,9 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 app.UseCors("AllowFrontend");
+
+app.UseAuthentication();
+app.UseAuthorization();
 
 // Map controllers
 app.MapControllers();
