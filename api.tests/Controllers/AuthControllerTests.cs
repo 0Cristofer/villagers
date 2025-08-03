@@ -389,6 +389,175 @@ public class AuthControllerTests
 
     #endregion
 
+    #region RefreshToken Tests
+
+    [Fact]
+    public async Task RefreshToken_WithValidTokenAndExistingUser_ShouldReturnNewAuthResponse()
+    {
+        // Arrange
+        var playerId = Guid.NewGuid();
+        var playerEntity = new PlayerEntity 
+        { 
+            Id = playerId, 
+            UserName = "testuser",
+            RegisteredWorldIds = [1, 2, 3]
+        };
+
+        var claimsPrincipal = new System.Security.Claims.ClaimsPrincipal(
+            new System.Security.Claims.ClaimsIdentity(new[]
+            {
+                new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.NameIdentifier, playerId.ToString())
+            }));
+
+        _controller.ControllerContext = new Microsoft.AspNetCore.Mvc.ControllerContext
+        {
+            HttpContext = new Microsoft.AspNetCore.Http.DefaultHttpContext
+            {
+                User = claimsPrincipal
+            }
+        };
+
+        var expectedToken = "new-refreshed-jwt-token";
+        var expectedExpiration = DateTime.UtcNow.AddDays(1);
+
+        _userManagerMock.Setup(x => x.FindByIdAsync(playerId.ToString()))
+                       .ReturnsAsync(playerEntity);
+
+        _jwtServiceMock.Setup(x => x.GenerateToken(It.IsAny<Player>()))
+                      .Returns(expectedToken);
+
+        _jwtServiceMock.Setup(x => x.GetTokenExpiration())
+                      .Returns(expectedExpiration);
+
+        // Act
+        var result = await _controller.RefreshToken();
+
+        // Assert
+        result.Should().BeOfType<OkObjectResult>();
+        var okResult = result as OkObjectResult;
+        var authResponse = okResult!.Value as AuthResponse;
+
+        authResponse.Should().NotBeNull();
+        authResponse!.Token.Should().Be(expectedToken);
+        authResponse.Player.Username.Should().Be("testuser");
+        authResponse.Player.Id.Should().Be(playerId);
+        authResponse.Player.RegisteredWorldIds.Should().BeEquivalentTo([1, 2, 3]);
+        authResponse.ExpiresAt.Should().Be(expectedExpiration);
+    }
+
+    [Fact]
+    public async Task RefreshToken_WithNonExistentUser_ShouldReturnUnauthorized()
+    {
+        // Arrange
+        var playerId = Guid.NewGuid();
+        var claimsPrincipal = new System.Security.Claims.ClaimsPrincipal(
+            new System.Security.Claims.ClaimsIdentity(new[]
+            {
+                new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.NameIdentifier, playerId.ToString())
+            }));
+
+        _controller.ControllerContext = new Microsoft.AspNetCore.Mvc.ControllerContext
+        {
+            HttpContext = new Microsoft.AspNetCore.Http.DefaultHttpContext
+            {
+                User = claimsPrincipal
+            }
+        };
+
+        _userManagerMock.Setup(x => x.FindByIdAsync(playerId.ToString()))
+                       .ReturnsAsync((PlayerEntity?)null);
+
+        // Act
+        var result = await _controller.RefreshToken();
+
+        // Assert
+        result.Should().BeOfType<UnauthorizedObjectResult>();
+        var unauthorizedResult = result as UnauthorizedObjectResult;
+        unauthorizedResult!.Value.Should().Be("User no longer exists");
+        
+        _jwtServiceMock.Verify(x => x.GenerateToken(It.IsAny<Player>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task RefreshToken_WithInvalidClaims_ShouldReturnUnauthorized()
+    {
+        // Arrange
+        var claimsPrincipal = new System.Security.Claims.ClaimsPrincipal(
+            new System.Security.Claims.ClaimsIdentity(new[]
+            {
+                new System.Security.Claims.Claim("InvalidClaim", "some-value")
+            }));
+
+        _controller.ControllerContext = new Microsoft.AspNetCore.Mvc.ControllerContext
+        {
+            HttpContext = new Microsoft.AspNetCore.Http.DefaultHttpContext
+            {
+                User = claimsPrincipal
+            }
+        };
+
+        // Act
+        var result = await _controller.RefreshToken();
+
+        // Assert
+        result.Should().BeOfType<UnauthorizedObjectResult>();
+        var unauthorizedResult = result as UnauthorizedObjectResult;
+        unauthorizedResult!.Value.Should().Be("Invalid token claims");
+        
+        _userManagerMock.Verify(x => x.FindByIdAsync(It.IsAny<string>()), Times.Never);
+        _jwtServiceMock.Verify(x => x.GenerateToken(It.IsAny<Player>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task RefreshToken_ShouldLogTokenRefresh()
+    {
+        // Arrange
+        var playerId = Guid.NewGuid();
+        var playerEntity = new PlayerEntity 
+        { 
+            Id = playerId, 
+            UserName = "testuser"
+        };
+
+        var claimsPrincipal = new System.Security.Claims.ClaimsPrincipal(
+            new System.Security.Claims.ClaimsIdentity(new[]
+            {
+                new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.NameIdentifier, playerId.ToString())
+            }));
+
+        _controller.ControllerContext = new Microsoft.AspNetCore.Mvc.ControllerContext
+        {
+            HttpContext = new Microsoft.AspNetCore.Http.DefaultHttpContext
+            {
+                User = claimsPrincipal
+            }
+        };
+
+        _userManagerMock.Setup(x => x.FindByIdAsync(playerId.ToString()))
+                       .ReturnsAsync(playerEntity);
+
+        _jwtServiceMock.Setup(x => x.GenerateToken(It.IsAny<Player>()))
+                      .Returns("token");
+
+        _jwtServiceMock.Setup(x => x.GetTokenExpiration())
+                      .Returns(DateTime.UtcNow);
+
+        // Act
+        await _controller.RefreshToken();
+
+        // Assert
+        _loggerMock.Verify(
+            x => x.Log(
+                LogLevel.Information,
+                It.IsAny<EventId>(),
+                It.Is<It.IsAnyType>((o, t) => o.ToString()!.Contains("Token refreshed for user testuser")),
+                It.IsAny<Exception>(),
+                It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
+            Times.Once);
+    }
+
+    #endregion
+
     #region Helper Methods
 
     private static Mock<UserManager<PlayerEntity>> CreateUserManagerMock()

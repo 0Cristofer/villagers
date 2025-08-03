@@ -126,4 +126,34 @@ public class AuthController : ControllerBase
             Player = domainPlayer.ToModel() 
         });
     }
+
+    [HttpPost("refresh")]
+    [Authorize]
+    public async Task<IActionResult> RefreshToken()
+    {
+        var playerIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (playerIdClaim == null || !Guid.TryParse(playerIdClaim, out var playerId))
+        {
+            return Unauthorized("Invalid token claims");
+        }
+
+        var playerEntity = await _userManager.FindByIdAsync(playerId.ToString());
+        if (playerEntity == null)
+        {
+            return Unauthorized("User no longer exists");
+        }
+
+        _logger.LogInformation("Token refreshed for user {Username}", playerEntity.UserName);
+
+        var domainPlayer = playerEntity.ToDomain();
+        var newToken = _jwtService.GenerateToken(domainPlayer);
+        var expiresAt = _jwtService.GetTokenExpiration();
+
+        return Ok(new AuthResponse
+        {
+            Token = newToken,
+            Player = domainPlayer.ToModel(),
+            ExpiresAt = expiresAt
+        });
+    }
 }
