@@ -48,7 +48,7 @@ public class GameSimulationServiceTests
     public void EnqueueCommand_ShouldAcceptCommand()
     {
         // Arrange
-        var command = new TestCommand("player1", "test message");
+        var command = new TestCommand(Guid.NewGuid(), "test message");
 
         // Act
         var exception = Record.Exception(() => _service.EnqueueCommand(command));
@@ -93,9 +93,9 @@ public class GameSimulationServiceTests
         // Arrange
         var commands = new[]
         {
-            new TestCommand("player1", "message1"),
-            new TestCommand("player2", "message2"),
-            new TestCommand("player3", "message3")
+            new TestCommand(Guid.NewGuid(), "message1"),
+            new TestCommand(Guid.NewGuid(), "message2"),
+            new TestCommand(Guid.NewGuid(), "message3")
         };
 
         // Act

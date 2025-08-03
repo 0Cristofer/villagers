@@ -16,10 +16,15 @@ public class World
 
     public event WorldTickHandler? TickOccurredEvent;
 
-    public World(string name, TimeSpan tickInterval, CommandQueue commandQueue)
+    public World(string name, TimeSpan tickInterval, CommandQueue commandQueue) 
+        : this(name, tickInterval, commandQueue, 0)
+    {
+    }
+
+    public World(string name, TimeSpan tickInterval, CommandQueue commandQueue, int tickNumber)
     {
         Name = name ?? throw new ArgumentNullException(nameof(name));
-        TickNumber = 0;
+        TickNumber = tickNumber;
         _tickInterval = tickInterval;
         _commandQueue = commandQueue ?? throw new ArgumentNullException(nameof(commandQueue));
         _isRunning = false;

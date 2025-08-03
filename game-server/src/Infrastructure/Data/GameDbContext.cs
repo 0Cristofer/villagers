@@ -1,5 +1,5 @@
 using Microsoft.EntityFrameworkCore;
-using Villagers.Shared.Entities;
+using Villagers.GameServer.Entities;
 
 namespace Villagers.GameServer.Infrastructure.Data;
 
@@ -9,25 +9,24 @@ public class GameDbContext : DbContext
     {
     }
 
-    public DbSet<WorldState> WorldStates { get; set; }
-    public DbSet<Command> Commands { get; set; }
+    public DbSet<WorldEntity> WorldStates { get; set; }
+    public DbSet<CommandEntity> Commands { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
 
-        // WorldState configuration
-        modelBuilder.Entity<WorldState>(entity =>
+        // WorldEntity configuration
+        modelBuilder.Entity<WorldEntity>(entity =>
         {
             entity.HasKey(e => e.Id);
             entity.Property(e => e.LastUpdated).HasDefaultValueSql("NOW()");
         });
 
-        // Command configuration  
-        modelBuilder.Entity<Command>(entity =>
+        // CommandEntity configuration  
+        modelBuilder.Entity<CommandEntity>(entity =>
         {
             entity.HasKey(e => e.Id);
-            entity.HasIndex(e => e.Status);
             entity.HasIndex(e => e.CreatedAt);
             entity.Property(e => e.CreatedAt).HasDefaultValueSql("NOW()");
             entity.Property(e => e.Payload).HasColumnType("jsonb");

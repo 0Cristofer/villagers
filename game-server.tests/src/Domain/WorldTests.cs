@@ -84,7 +84,7 @@ public class WorldTests
     public async Task Run_WithTestCommand_ShouldProcessCommand()
     {
         // Arrange
-        var testCommand = new TestCommand("player1", "Hello World");
+        var testCommand = new TestCommand(Guid.NewGuid(), "Hello World");
         _commandQueue.EnqueueCommand(testCommand);
 
         using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(50));
@@ -117,9 +117,9 @@ public class WorldTests
         // Arrange
         var commands = new[]
         {
-            new TestCommand("player1", "First"),
-            new TestCommand("player2", "Second"),
-            new TestCommand("player3", "Third")
+            new TestCommand(Guid.NewGuid(), "First"),
+            new TestCommand(Guid.NewGuid(), "Second"),
+            new TestCommand(Guid.NewGuid(), "Third")
         };
 
         foreach (var cmd in commands)

@@ -18,7 +18,7 @@ public class CommandQueueTests
     public void EnqueueCommand_ShouldAddCommandToQueue()
     {
         // Arrange
-        var command = new TestCommand("player1", "test message");
+        var command = new TestCommand(Guid.NewGuid(), "test message");
 
         // Act
         _commandQueue.EnqueueCommand(command);
@@ -33,9 +33,9 @@ public class CommandQueueTests
     public void GetCommandsAndClear_ShouldReturnAllCommandsAndClearQueue()
     {
         // Arrange
-        var command1 = new TestCommand("player1", "message1");
-        var command2 = new TestCommand("player2", "message2");
-        var command3 = new TestCommand("player3", "message3");
+        var command1 = new TestCommand(Guid.NewGuid(), "message1");
+        var command2 = new TestCommand(Guid.NewGuid(), "message2");
+        var command3 = new TestCommand(Guid.NewGuid(), "message3");
 
         _commandQueue.EnqueueCommand(command1);
         _commandQueue.EnqueueCommand(command2);
@@ -80,7 +80,7 @@ public class CommandQueueTests
             {
                 for (int j = 0; j < commandsPerThread; j++)
                 {
-                    _commandQueue.EnqueueCommand(new TestCommand($"player{threadId}", $"message{j}"));
+                    _commandQueue.EnqueueCommand(new TestCommand(Guid.NewGuid(), $"message{j}"));
                 }
             });
         }
@@ -99,7 +99,7 @@ public class CommandQueueTests
         var commands = new List<TestCommand>();
         for (int i = 0; i < 5; i++)
         {
-            var command = new TestCommand($"player{i}", $"message{i}");
+            var command = new TestCommand(Guid.NewGuid(), $"message{i}");
             commands.Add(command);
             _commandQueue.EnqueueCommand(command);
         }

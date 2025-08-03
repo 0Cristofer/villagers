@@ -2,6 +2,6 @@ namespace Villagers.GameServer.Domain.Commands;
 
 public interface ICommand
 {
-    string PlayerId { get; }
+    Guid PlayerId { get; }
     DateTime Timestamp { get; }
 }
