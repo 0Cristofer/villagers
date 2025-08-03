@@ -12,7 +12,7 @@ public class JwtService : IJwtService
     private readonly string _secretKey;
     private readonly string _issuer;
     private readonly string _audience;
-    private readonly int _expirationHours;
+    private readonly TimeSpan _expiration;
 
     public JwtService(IConfiguration configuration)
     {
@@ -20,7 +20,8 @@ public class JwtService : IJwtService
         _secretKey = _configuration["Jwt:SecretKey"] ?? throw new InvalidOperationException("JWT SecretKey not configured");
         _issuer = _configuration["Jwt:Issuer"] ?? throw new InvalidOperationException("JWT Issuer not configured");
         _audience = _configuration["Jwt:Audience"] ?? throw new InvalidOperationException("JWT Audience not configured");
-        _expirationHours = int.Parse(_configuration["Jwt:ExpirationHours"] ?? throw new InvalidOperationException("JWT ExpirationHours not configured"));
+        var expirationConfig = _configuration["Jwt:Expiration"] ?? throw new InvalidOperationException("JWT Expiration not configured");
+        _expiration = TimeSpan.Parse(expirationConfig);
     }
 
     public string GenerateToken(Player player)
@@ -37,7 +38,7 @@ public class JwtService : IJwtService
             issuer: _issuer,
             audience: _audience,
             claims: claims,
-            expires: DateTime.UtcNow.AddHours(_expirationHours),
+            expires: DateTime.UtcNow.Add(_expiration),
             signingCredentials: credentials
         );
 
@@ -65,6 +66,6 @@ public class JwtService : IJwtService
 
     public DateTime GetTokenExpiration()
     {
-        return DateTime.UtcNow.AddHours(_expirationHours);
+        return DateTime.UtcNow.Add(_expiration);
     }
 }

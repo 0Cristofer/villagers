@@ -12,6 +12,24 @@ builder.Services
 
 var app = builder.Build();
 
+// Global exception handling middleware
+app.Use(async (context, next) =>
+{
+    try
+    {
+        await next(context);
+    }
+    catch (Exception ex)
+    {
+        var logger = context.RequestServices.GetRequiredService<ILogger<Program>>();
+        logger.LogError(ex, "An unhandled exception occurred");
+        
+        context.Response.StatusCode = 500;
+        context.Response.ContentType = "text/plain";
+        await context.Response.WriteAsync("Server error. Please try again later.");
+    }
+});
+
 // Configure the HTTP request pipeline
 if (app.Environment.IsDevelopment())
 {

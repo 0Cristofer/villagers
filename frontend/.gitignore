@@ -10,13 +10,23 @@
 
 # production
 /build
+/dist
 
 # misc
 .DS_Store
+
+# Environment files
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
+
+# Keep base environment files but ignore sensitive ones
+# .env                     # Keep - safe defaults
+# .env.development         # Keep - dev config  
+# .env.production          # Keep - prod template
+.env.staging             # Ignore - may contain sensitive data
+.env.*.local             # Ignore - local overrides
 
 npm-debug.log*
 yarn-debug.log*

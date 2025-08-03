@@ -7,7 +7,7 @@ echo "🎮 Starting Villagers Development Environment..."
 # Kill any existing processes
 echo "🔄 Stopping existing servers..."
 pkill -f "dotnet run" 2>/dev/null || true
-pkill -f "react-scripts" 2>/dev/null || true
+pkill -f "vite" 2>/dev/null || true
 sleep 2
 
 # Build all services
@@ -43,7 +43,7 @@ echo ""
 # Start Game Server (ECS)
 echo "🎯 Starting Game Server (ECS)..."
 cd ../game-server
-dotnet run &
+dotnet run --launch-profile "Game Server (HTTPS)" &
 GAME_SERVER_PID=$!
 echo "Game Server started with PID: $GAME_SERVER_PID"
 
@@ -53,29 +53,29 @@ sleep 3
 # Start Lambda API
 echo "⚡ Starting Lambda API..."
 cd ../api
-dotnet run --urls="http://localhost:3001" &
+dotnet run --launch-profile "Villagers API (HTTPS)" &
 API_PID=$!
 echo "Lambda API started with PID: $API_PID"
 
 # Wait for API to start
 sleep 3
 
-# Start frontend React app
-echo "🌐 Starting React frontend..."
+# Start frontend with Vite
+echo "🌐 Starting React frontend (Vite)..."
 cd ../frontend
-npm start &
+npm run dev &
 FRONTEND_PID=$!
 echo "Frontend started with PID: $FRONTEND_PID"
 
 echo ""
 echo "✅ Development environment is starting up!"
-echo "📱 Frontend: http://localhost:3000"
-echo "⚡ Lambda API: http://localhost:3001 (Swagger: http://localhost:3001/swagger)"
-echo "🎯 Game Server: http://localhost:5033"
+echo "📱 Frontend: https://localhost:3000"
+echo "⚡ Lambda API: https://localhost:3002 (Swagger: https://localhost:3002/swagger)"
+echo "🎯 Game Server: https://localhost:5034"
 echo ""
-echo "🏗️  Architecture:"
-echo "   Client → Lambda API → Game Server"
-echo "   Client ← SignalR ← Game Server"
+echo "🏗️  New Architecture:"
+echo "   Client → API (Auth/Player Management)"
+echo "   Client ← SignalR ← Game Server (Real-time Commands & Updates)"
 echo ""
 echo "💡 To stop servers: ./stop-dev.sh or Ctrl+C"
 echo ""
