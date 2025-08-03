@@ -1,6 +1,11 @@
 #!/bin/bash
 
-# Villagers - Development Server Startup Script
+# Villagers - Development Environment Launcher
+# 
+# This script starts all services together. For individual control, use:
+# - ./start-api.sh      (Start API server only)
+# - ./start-gameserver.sh (Start Game Server only) 
+# - ./start-frontend.sh (Start Frontend only)
 
 echo "🎮 Starting Villagers Development Environment..."
 
@@ -10,74 +15,47 @@ pkill -f "dotnet run" 2>/dev/null || true
 pkill -f "vite" 2>/dev/null || true
 sleep 2
 
-# Build all services
-echo "🔨 Building all services..."
-
-echo "  Building Game Server..."
-cd game-server
-dotnet build
-if [ $? -ne 0 ]; then
-    echo "❌ Game Server build failed!"
-    exit 1
-fi
-
-echo "  Building Lambda API..."
-cd ../api
-dotnet build
-if [ $? -ne 0 ]; then
-    echo "❌ Lambda API build failed!"
-    exit 1
-fi
-
-echo "  Installing frontend dependencies..."
-cd ../frontend
-npm install --silent
-if [ $? -ne 0 ]; then
-    echo "❌ Frontend dependency installation failed!"
-    exit 1
-fi
-
-echo "✅ All builds completed successfully!"
-echo ""
-
-# Start Game Server (ECS)
-echo "🎯 Starting Game Server (ECS)..."
-cd ../game-server
-dotnet run --launch-profile "Game Server (HTTPS)" &
-GAME_SERVER_PID=$!
-echo "Game Server started with PID: $GAME_SERVER_PID"
-
-# Wait for game server to start
-sleep 3
-
-# Start Lambda API
+# Start services in correct order using individual scripts
 echo "⚡ Starting Lambda API..."
-cd ../api
-dotnet run --launch-profile "Villagers API (HTTPS)" &
+./start-api.sh &
 API_PID=$!
 echo "Lambda API started with PID: $API_PID"
 
-# Wait for API to start
+# Wait for API to be ready
+echo "  Waiting for API to initialize..."
+sleep 5
+
+echo "🎯 Starting Game Server..."
+./start-gameserver.sh &
+GAME_SERVER_PID=$!
+echo "Game Server started with PID: $GAME_SERVER_PID"
+
+# Wait for game server to start and register
+echo "  Waiting for Game Server to register with API..."
 sleep 3
 
-# Start frontend with Vite
-echo "🌐 Starting React frontend (Vite)..."
-cd ../frontend
-npm run dev &
+echo "🌐 Starting Frontend..."
+./start-frontend.sh &
 FRONTEND_PID=$!
 echo "Frontend started with PID: $FRONTEND_PID"
 
 echo ""
-echo "✅ Development environment is starting up!"
+echo "✅ Development environment is ready!"
 echo "📱 Frontend: https://localhost:3000"
 echo "⚡ Lambda API: https://localhost:3002 (Swagger: https://localhost:3002/swagger)"
 echo "🎯 Game Server: https://localhost:5034"
 echo ""
-echo "🏗️  New Architecture:"
-echo "   Client → API (Auth/Player Management)"
-echo "   Client ← SignalR ← Game Server (Real-time Commands & Updates)"
+echo "🏗️  Architecture & Startup Order:"
+echo "   1. ⚡ API starts first (world registry service)"
+echo "   2. 🎯 Game Server starts and registers with API"
+echo "   3. 📱 Frontend connects to both services"
+echo "   Flow: Client → API (Auth) + Client ← SignalR ← Game Server (Real-time)"
 echo ""
-echo "💡 To stop servers: ./stop-dev.sh or Ctrl+C"
+echo "💡 Individual services:"
+echo "   ./start-api.sh      - Start API only"
+echo "   ./start-gameserver.sh - Start Game Server only"
+echo "   ./start-frontend.sh - Start Frontend only"
+echo "   ./stop-dev.sh       - Stop all services"
 echo ""
 
 # Wait for user to stop

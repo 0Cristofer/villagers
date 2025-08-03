@@ -6,26 +6,29 @@ public class World
 {
     public delegate Task WorldTickHandler(World world);
     
-    public string Name { get; private set; }
+    public Guid Id { get; private set; }
+    public WorldConfig Config { get; private set; }
     public int TickNumber { get; private set; }
     public string Message { get; private set; } // Temporary test
 
-    private readonly TimeSpan _tickInterval;
     private readonly CommandQueue _commandQueue;
     private bool _isRunning;
 
     public event WorldTickHandler? TickOccurredEvent;
 
-    public World(string name, TimeSpan tickInterval, CommandQueue commandQueue) 
-        : this(name, tickInterval, commandQueue, 0)
+    public World(WorldConfig config, CommandQueue commandQueue) 
+        : this(Guid.NewGuid(), config, commandQueue, 0)
     {
     }
 
-    public World(string name, TimeSpan tickInterval, CommandQueue commandQueue, int tickNumber)
+    public World(Guid id, WorldConfig config, CommandQueue commandQueue, int tickNumber)
     {
-        Name = name ?? throw new ArgumentNullException(nameof(name));
+        if (id == Guid.Empty)
+            throw new ArgumentException("World ID cannot be empty", nameof(id));
+        
+        Id = id;
+        Config = config ?? throw new ArgumentNullException(nameof(config));
         TickNumber = tickNumber;
-        _tickInterval = tickInterval;
         _commandQueue = commandQueue ?? throw new ArgumentNullException(nameof(commandQueue));
         _isRunning = false;
         Message = string.Empty;
@@ -44,7 +47,7 @@ public class World
             
             try
             {
-                await Task.Delay(_tickInterval, cancellationToken);
+                await Task.Delay(Config.TickInterval, cancellationToken);
             }
             catch (OperationCanceledException)
             {

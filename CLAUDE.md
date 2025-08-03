@@ -52,6 +52,12 @@ Client ──HTTP──► Lambda API ──HTTP──► Game Server (ECS)
 ./stop-dev.sh
 ```
 
+**⚠️ Important Startup Order:**
+The API must start before the Game Server because the Game Server registers itself with the API on startup. The `start-dev.sh` script handles this automatically:
+1. **API starts first** (world registry service)
+2. **Game Server starts second** (registers with API)
+3. **Frontend starts last** (connects to both services)
+
 ### Individual Services
 
 #### Game Server (Port 5033)

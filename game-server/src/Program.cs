@@ -3,11 +3,15 @@ using Villagers.GameServer.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Add world configuration from separate files
+builder.Configuration.AddJsonFile("worldconfig.json", optional: false, reloadOnChange: true);
+builder.Configuration.AddJsonFile($"worldconfig.{builder.Environment.EnvironmentName}.json", optional: true, reloadOnChange: true);
+
 // Add services using extension methods
 builder.Services
     .AddDatabase(builder.Configuration)
     .AddRepositories()
-    .AddGameServices()
+    .AddGameServices(builder.Configuration)
     .AddCorsPolicy(builder.Configuration);
 
 var app = builder.Build();
@@ -42,6 +46,7 @@ app.UseCors("AllowClients");
 // No API endpoints needed - using SignalR only
 
 // Configure SignalR for real-time updates to clients
-app.MapHub<GameHub>("/gamehub");
+var hubPath = builder.Configuration["Server:HubPath"] ?? "/gamehub";
+app.MapHub<GameHub>(hubPath);
 
 app.Run();

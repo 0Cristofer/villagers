@@ -8,39 +8,41 @@ namespace Villagers.GameServer.Tests.Domain;
 public class WorldTests
 {
     private readonly CommandQueue _commandQueue;
+    private readonly WorldConfig _worldConfig;
     private readonly World _world;
 
     public WorldTests()
     {
         _commandQueue = new CommandQueue();
-        _world = new World("Test World", TimeSpan.FromMilliseconds(10), _commandQueue);
+        _worldConfig = new WorldConfig("Test World", TimeSpan.FromMilliseconds(10));
+        _world = new World(_worldConfig, _commandQueue);
     }
 
     [Fact]
     public void Constructor_ShouldInitializePropertiesCorrectly()
     {
         // Assert
-        _world.Name.Should().Be("Test World");
+        _world.Config.WorldName.Should().Be("Test World");
         _world.TickNumber.Should().Be(0);
         _world.Message.Should().BeEmpty();
     }
 
     [Fact]
-    public void Constructor_WithNullName_ShouldThrowArgumentNullException()
+    public void Constructor_WithNullConfig_ShouldThrowArgumentNullException()
     {
         // Act
-        var act = () => new World(null!, TimeSpan.FromSeconds(1), _commandQueue);
+        var act = () => new World(null!, _commandQueue);
 
         // Assert
         act.Should().Throw<ArgumentNullException>()
-            .WithParameterName("name");
+            .WithParameterName("config");
     }
 
     [Fact]
     public void Constructor_WithNullCommandQueue_ShouldThrowArgumentNullException()
     {
         // Act
-        var act = () => new World("Test", TimeSpan.FromSeconds(1), null!);
+        var act = () => new World(_worldConfig, null!);
 
         // Assert
         act.Should().Throw<ArgumentNullException>()

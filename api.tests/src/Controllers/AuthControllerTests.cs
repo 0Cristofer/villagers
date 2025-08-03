@@ -578,7 +578,7 @@ public class AuthControllerTests
             userManagerMock.Object,
             contextAccessorMock.Object,
             claimsFactoryMock.Object,
-            null, null, null, null);
+            null!, null!, null!, null!);
     }
 
     #endregion
