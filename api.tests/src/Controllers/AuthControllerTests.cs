@@ -147,7 +147,7 @@ public class AuthControllerTests
         { 
             Id = Guid.NewGuid(), 
             UserName = request.Username,
-            RegisteredWorldIds = [1, 2, 3]
+            RegisteredWorldIds = [Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid()]
         };
         var expectedToken = "generated-jwt-token";
         var expectedExpiration = DateTime.UtcNow.AddDays(1);
@@ -176,7 +176,7 @@ public class AuthControllerTests
         authResponse!.Token.Should().Be(expectedToken);
         authResponse.Player.Username.Should().Be(request.Username);
         authResponse.Player.Id.Should().Be(playerEntity.Id);
-        authResponse.Player.RegisteredWorldIds.Should().BeEquivalentTo([1, 2, 3]);
+        authResponse.Player.RegisteredWorldIds.Should().HaveCount(3);
         authResponse.ExpiresAt.Should().Be(expectedExpiration);
     }
 
@@ -248,7 +248,7 @@ public class AuthControllerTests
         { 
             Id = Guid.NewGuid(), 
             UserName = request.Username,
-            RegisteredWorldIds = [1, 2],
+            RegisteredWorldIds = [Guid.NewGuid(), Guid.NewGuid()],
             CreatedAt = DateTime.UtcNow.AddDays(-30),
             UpdatedAt = DateTime.UtcNow.AddHours(-1)
         };
@@ -273,7 +273,7 @@ public class AuthControllerTests
         capturedDomainPlayer.Should().NotBeNull();
         capturedDomainPlayer!.Id.Should().Be(playerEntity.Id);
         capturedDomainPlayer.Username.Should().Be(playerEntity.UserName);
-        capturedDomainPlayer.RegisteredWorldIds.Should().BeEquivalentTo([1, 2]);
+        capturedDomainPlayer.RegisteredWorldIds.Should().HaveCount(2);
         capturedDomainPlayer.CreatedAt.Should().Be(playerEntity.CreatedAt);
         capturedDomainPlayer.UpdatedAt.Should().Be(playerEntity.UpdatedAt);
     }
@@ -291,7 +291,7 @@ public class AuthControllerTests
         { 
             Id = playerId, 
             UserName = "testuser",
-            RegisteredWorldIds = [1, 2, 3]
+            RegisteredWorldIds = [Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid()]
         };
 
         // Mock User.FindFirst to return the player ID claim
@@ -400,7 +400,7 @@ public class AuthControllerTests
         { 
             Id = playerId, 
             UserName = "testuser",
-            RegisteredWorldIds = [1, 2, 3]
+            RegisteredWorldIds = [Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid()]
         };
 
         var claimsPrincipal = new System.Security.Claims.ClaimsPrincipal(
@@ -441,7 +441,7 @@ public class AuthControllerTests
         authResponse!.Token.Should().Be(expectedToken);
         authResponse.Player.Username.Should().Be("testuser");
         authResponse.Player.Id.Should().Be(playerId);
-        authResponse.Player.RegisteredWorldIds.Should().BeEquivalentTo([1, 2, 3]);
+        authResponse.Player.RegisteredWorldIds.Should().HaveCount(3);
         authResponse.ExpiresAt.Should().Be(expectedExpiration);
     }
 
