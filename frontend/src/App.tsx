@@ -8,7 +8,7 @@ import { GameHubMethods } from './types/signalr';
 function App() {
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
   const [player, setPlayer] = useState<Player | null>(null);
-  const [, setToken] = useState<string | null>(null);
+  const [token, setToken] = useState<string | null>(null);
   const [username, setUsername] = useState<string>('');
   const [password, setPassword] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -204,7 +204,9 @@ function App() {
   const createHubConnection = async (world: WorldResponse): Promise<HubConnection | undefined> => {
     try {
       const connection = new HubConnectionBuilder()
-        .withUrl(world.serverEndpoint)
+        .withUrl(world.serverEndpoint, {
+          accessTokenFactory: () => token || ''
+        })
         .withAutomaticReconnect()
         .build();
 

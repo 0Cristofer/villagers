@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 using Villagers.GameServer.Domain.Commands;
 using Villagers.GameServer.Interfaces;
@@ -5,6 +6,7 @@ using Villagers.GameServer.Services;
 
 namespace Villagers.GameServer;
 
+[Authorize]
 public class GameHub : Hub<IGameClient>
 {
     private readonly ILogger<GameHub> _logger;
