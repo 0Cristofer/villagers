@@ -28,6 +28,7 @@ public class WorldRegistrationService : IWorldRegistrationService
         if (string.IsNullOrEmpty(apiKey))
             throw new InvalidOperationException("Api:ApiKey configuration is required for world registration");
 
+        // Get server endpoint from configuration (can be overridden by environment variables)
         var serverEndpoint = _configuration["Server:Endpoint"];
         var hubPath = _configuration["Server:HubPath"] ?? "/gamehub";
         
@@ -73,4 +74,5 @@ public class WorldRegistrationService : IWorldRegistrationService
             _logger.LogError(ex, "Error unregistering world from API");
         }
     }
+
 }

@@ -1,31 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import './App.css';
 import { urls } from './config/env';
-
-// Types for the API responses
-interface Player {
-  id: string;
-  username: string;
-  registeredWorldIds: number[];
-  createdAt: string;
-  updatedAt: string;
-}
-
-interface AuthResponse {
-  token: string;
-  player: Player;
-  expiresAt: string;
-}
-
-interface LoginRequest {
-  username: string;
-  password: string;
-}
-
-interface RegisterRequest {
-  username: string;
-  password: string;
-}
+import { Player, AuthResponse, LoginRequest, RegisterRequest, WorldResponse } from './types/api';
 
 function App() {
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
@@ -36,6 +12,8 @@ function App() {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>('');
   const [isRegisterMode, setIsRegisterMode] = useState<boolean>(false);
+  const [availableWorlds, setAvailableWorlds] = useState<WorldResponse[]>([]);
+  const [worldsLoading, setWorldsLoading] = useState<boolean>(false);
 
   // Check for existing token on component mount
   useEffect(() => {
@@ -62,6 +40,9 @@ function App() {
         setPlayer(authData.player);
         setIsLoggedIn(true);
         localStorage.setItem('villagers_token', authData.token);
+        
+        // Fetch available worlds after successful token validation
+        await fetchAvailableWorlds();
       } else {
         // Token is invalid, remove it
         localStorage.removeItem('villagers_token');
@@ -71,6 +52,23 @@ function App() {
       localStorage.removeItem('villagers_token');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const fetchAvailableWorlds = async () => {
+    try {
+      setWorldsLoading(true);
+      const response = await fetch(`${urls.api.base}/api/worlds`);
+      if (response.ok) {
+        const worlds: WorldResponse[] = await response.json();
+        setAvailableWorlds(worlds);
+      } else {
+        console.error('Failed to fetch worlds');
+      }
+    } catch (error) {
+      console.error('Error fetching worlds:', error);
+    } finally {
+      setWorldsLoading(false);
     }
   };
 
@@ -101,6 +99,9 @@ function App() {
         
         // Store token for future sessions
         localStorage.setItem('villagers_token', authData.token);
+        
+        // Fetch available worlds after successful login
+        await fetchAvailableWorlds();
       } else {
         // Handle different response types
         const errorText = await response.text();
@@ -147,6 +148,9 @@ function App() {
         
         // Store token for future sessions
         localStorage.setItem('villagers_token', authData.token);
+        
+        // Fetch available worlds after successful registration
+        await fetchAvailableWorlds();
       } else {
         // Handle different response types
         const errorText = await response.text();
@@ -256,55 +260,74 @@ function App() {
     </div>
   );
 
-  const renderWorldList = () => (
-    <div className="world-list-container">
-      <div className="header">
-        <h1>Villagers Game</h1>
-        <div className="user-info">
-          <span>Welcome, {player?.username}!</span>
-          <button onClick={handleLogout} className="logout-button">
-            Logout
-          </button>
+  const renderWorldList = () => {
+    const registeredWorlds = availableWorlds.filter(world => 
+      player?.registeredWorldIds.includes(world.worldId)
+    );
+    const unregisteredWorlds = availableWorlds.filter(world => 
+      !player?.registeredWorldIds.includes(world.worldId)
+    );
+
+    return (
+      <div className="world-list-container">
+        <div className="header">
+          <h1>Villagers Game</h1>
+          <div className="user-info">
+            <span>Welcome, {player?.username}!</span>
+            <button onClick={handleLogout} className="logout-button">
+              Logout
+            </button>
+          </div>
         </div>
-      </div>
-      
-      <div className="worlds-section">
-        <h2>Your Worlds</h2>
-        
-        {player?.registeredWorldIds && player.registeredWorldIds.length > 0 ? (
-          <div className="worlds-grid">
-            {player.registeredWorldIds.map((worldId) => (
-              <div key={worldId} className="world-card">
-                <h3>World {worldId}</h3>
-                <p>Click to enter world and start playing</p>
-                <button 
-                  className="enter-world-button"
-                  onClick={() => alert(`Entering World ${worldId} - Game mechanics coming soon!`)}
-                >
-                  Enter World
-                </button>
+
+        <div className="worlds-container">
+          <div className="registered-worlds">
+            <h3>Your Worlds</h3>
+            {worldsLoading ? (
+              <p>Loading worlds...</p>
+            ) : registeredWorlds.length > 0 ? (
+              <div className="worlds-grid">
+                {registeredWorlds.map(world => (
+                  <div key={world.worldId} className="world-card registered">
+                    <h4>{world.config.worldName}</h4>
+                    <p>Server: {world.serverEndpoint}</p>
+                    <p>Tick Interval: {world.config.tickInterval}</p>
+                    <p>Registered: {new Date(world.registeredAt).toLocaleDateString()}</p>
+                    <button className="enter-world-button">Join World</button>
+                  </div>
+                ))}
               </div>
-            ))}
+            ) : (
+              <p>You haven't joined any worlds yet.</p>
+            )}
           </div>
-        ) : (
-          <div className="no-worlds">
-            <p>You haven't joined any worlds yet.</p>
-            <p>World registration and game mechanics coming soon!</p>
+
+          <div className="available-worlds">
+            <h3>Available Worlds</h3>
+            {worldsLoading ? (
+              <p>Loading worlds...</p>
+            ) : unregisteredWorlds.length > 0 ? (
+              <div className="worlds-grid">
+                {unregisteredWorlds.map(world => (
+                  <div key={world.worldId} className="world-card available">
+                    <h4>{world.config.worldName}</h4>
+                    <p>Server: {world.serverEndpoint}</p>
+                    <p>Tick Interval: {world.config.tickInterval}</p>
+                    <p>Registered: {new Date(world.registeredAt).toLocaleDateString()}</p>
+                    <button className="register-world-button" disabled>
+                      Register (Coming Soon)
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p>No worlds available at the moment.</p>
+            )}
           </div>
-        )}
-      </div>
-      
-      <div className="player-details">
-        <h3>Player Details</h3>
-        <div className="details-grid">
-          <div><strong>Player ID:</strong> {player?.id}</div>
-          <div><strong>Username:</strong> {player?.username}</div>
-          <div><strong>Registered Worlds:</strong> {player?.registeredWorldIds?.length || 0}</div>
-          <div><strong>Member Since:</strong> {player?.createdAt ? new Date(player.createdAt).toLocaleDateString() : 'Unknown'}</div>
         </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   // Show loading spinner during initial token validation
   if (isLoading && !isLoggedIn && !username) {
@@ -317,6 +340,7 @@ function App() {
       </div>
     );
   }
+
 
   return (
     <div className="App">
