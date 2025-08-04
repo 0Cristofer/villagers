@@ -137,4 +137,43 @@ public class WorldTests
         // Assert
         _world.Message.Should().Be("Third"); // Last command processed
     }
+
+    [Fact]
+    public async Task Run_WithRegisterPlayerCommand_ShouldProcessCommand()
+    {
+        // Arrange
+        var playerId = Guid.NewGuid();
+        var registerCommand = new RegisterPlayerCommand(playerId);
+        _commandQueue.EnqueueCommand(registerCommand);
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(50));
+
+        // Act
+        await _world.Run(cts.Token);
+
+        // Assert - Command should be processed without throwing
+        // (We don't have observable state changes yet, but command processing shouldn't crash)
+        _world.TickNumber.Should().BeGreaterThan(0);
+    }
+
+    [Fact]
+    public async Task Run_WithMixedCommands_ShouldProcessAllCommands()
+    {
+        // Arrange
+        var playerId = Guid.NewGuid();
+        var testCommand = new TestCommand(playerId, "Test Message");
+        var registerCommand = new RegisterPlayerCommand(playerId);
+        
+        _commandQueue.EnqueueCommand(testCommand);
+        _commandQueue.EnqueueCommand(registerCommand);
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(50));
+
+        // Act
+        await _world.Run(cts.Token);
+
+        // Assert
+        _world.Message.Should().Be("Test Message");
+        _world.TickNumber.Should().BeGreaterThan(0);
+    }
 }

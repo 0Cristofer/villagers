@@ -39,6 +39,9 @@ public static class ServiceCollectionExtensions
         // Add world registration service
         services.AddSingleton<IWorldRegistrationService, WorldRegistrationService>();
         
+        // Add player registration service
+        services.AddSingleton<IPlayerRegistrationService, PlayerRegistrationService>();
+        
         services.AddSignalR();
         services.AddSingleton<IGameSimulationService, GameSimulationService>();
         services.AddHostedService(provider => 

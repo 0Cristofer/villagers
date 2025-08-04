@@ -7,29 +7,28 @@ using Moq;
 using Villagers.Api.Controllers;
 using Villagers.Api.Data;
 using Villagers.Api.Models;
+using Villagers.Api.Services;
 using Xunit;
 
 namespace Villagers.Api.Tests.Controllers;
 
-public class InternalControllerTests : IDisposable
+public class InternalControllerTests
 {
     private readonly Mock<IConfiguration> _configurationMock;
-    private readonly ApiDbContext _context;
+    private readonly Mock<IPlayerService> _playerServiceMock;
+    private readonly Mock<IWorldRegistryService> _worldRegistryServiceMock;
     private readonly InternalController _controller;
 
     public InternalControllerTests()
     {
-        var options = new DbContextOptionsBuilder<ApiDbContext>()
-            .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
-            .Options;
-
-        _context = new ApiDbContext(options);
         _configurationMock = new Mock<IConfiguration>();
+        _playerServiceMock = new Mock<IPlayerService>();
+        _worldRegistryServiceMock = new Mock<IWorldRegistryService>();
         
         // Setup valid API key for default tests
         _configurationMock.Setup(x => x["InternalApi:ApiKey"]).Returns("test-api-key");
         
-        _controller = new InternalController(_context, _configurationMock.Object);
+        _controller = new InternalController(_configurationMock.Object, _playerServiceMock.Object, _worldRegistryServiceMock.Object);
 
         // Setup HTTP context with API key header
         var httpContext = new DefaultHttpContext();
@@ -55,6 +54,10 @@ public class InternalControllerTests : IDisposable
             }
         };
 
+        var expectedId = Guid.NewGuid();
+        _worldRegistryServiceMock.Setup(x => x.RegisterWorldAsync(request))
+            .ReturnsAsync(expectedId);
+
         // Act
         var result = await _controller.RegisterWorld(request);
 
@@ -63,12 +66,7 @@ public class InternalControllerTests : IDisposable
         var okResult = (OkObjectResult)result;
         okResult.Value.Should().NotBeNull();
 
-        var worldRegistry = await _context.WorldRegistry.FirstOrDefaultAsync();
-        worldRegistry.Should().NotBeNull();
-        worldRegistry!.WorldId.Should().Be(request.WorldId);
-        worldRegistry.ServerEndpoint.Should().Be(request.ServerEndpoint);
-        worldRegistry.Config.WorldName.Should().Be(request.Config.WorldName);
-        worldRegistry.Config.TickInterval.Should().Be(request.Config.TickInterval);
+        _worldRegistryServiceMock.Verify(x => x.RegisterWorldAsync(request), Times.Once);
     }
 
     [Fact]
@@ -144,18 +142,15 @@ public class InternalControllerTests : IDisposable
             }
         };
 
-        // First register a world
-        await _controller.RegisterWorld(request);
-        var registeredWorld = await _context.WorldRegistry.FirstAsync();
+        _worldRegistryServiceMock.Setup(x => x.UnregisterWorldAsync(worldId))
+            .ReturnsAsync(true);
 
         // Act
         var result = await _controller.UnregisterWorld(worldId);
 
         // Assert
         result.Should().BeOfType<NoContentResult>();
-        
-        var worldRegistry = await _context.WorldRegistry.FindAsync(registeredWorld.Id);
-        worldRegistry.Should().BeNull();
+        _worldRegistryServiceMock.Verify(x => x.UnregisterWorldAsync(worldId), Times.Once);
     }
 
     [Fact]
@@ -163,12 +158,15 @@ public class InternalControllerTests : IDisposable
     {
         // Arrange
         var nonExistentWorldId = Guid.NewGuid();
+        _worldRegistryServiceMock.Setup(x => x.UnregisterWorldAsync(nonExistentWorldId))
+            .ReturnsAsync(false);
 
         // Act
         var result = await _controller.UnregisterWorld(nonExistentWorldId);
 
         // Assert
         result.Should().BeOfType<NotFoundResult>();
+        _worldRegistryServiceMock.Verify(x => x.UnregisterWorldAsync(nonExistentWorldId), Times.Once);
     }
 
     [Fact]
@@ -209,6 +207,9 @@ public class InternalControllerTests : IDisposable
             }
         };
 
+        _worldRegistryServiceMock.Setup(x => x.RegisterWorldAsync(request))
+            .ThrowsAsync(new ArgumentException("Invalid world name"));
+
         // Act & Assert
         var exception = await Record.ExceptionAsync(async () =>
         {
@@ -232,6 +233,9 @@ public class InternalControllerTests : IDisposable
                 TickInterval = TimeSpan.Zero
             }
         };
+
+        _worldRegistryServiceMock.Setup(x => x.RegisterWorldAsync(request))
+            .ThrowsAsync(new ArgumentException("Invalid tick interval"));
 
         // Act & Assert
         var exception = await Record.ExceptionAsync(async () =>
@@ -257,6 +261,9 @@ public class InternalControllerTests : IDisposable
             }
         };
 
+        _worldRegistryServiceMock.Setup(x => x.RegisterWorldAsync(request))
+            .ThrowsAsync(new ArgumentException("Invalid tick interval"));
+
         // Act & Assert
         var exception = await Record.ExceptionAsync(async () =>
         {
@@ -266,8 +273,62 @@ public class InternalControllerTests : IDisposable
         exception.Should().BeOfType<ArgumentException>();
     }
 
-    public void Dispose()
+    [Fact]
+    public async Task RegisterPlayerForWorld_WithValidData_ShouldCallPlayerService()
     {
-        _context.Dispose();
+        // Arrange
+        var playerId = Guid.NewGuid();
+        var worldId = Guid.NewGuid();
+        var request = new RegisterPlayerForWorldRequest { WorldId = worldId };
+
+        // Act
+        var result = await _controller.RegisterPlayerForWorld(playerId, request);
+
+        // Assert
+        result.Should().BeOfType<OkResult>();
+        _playerServiceMock.Verify(x => x.RegisterPlayerForWorldAsync(playerId, worldId), Times.Once);
     }
+
+    [Fact]
+    public async Task RegisterPlayerForWorld_WhenPlayerNotFound_ShouldReturnNotFound()
+    {
+        // Arrange
+        var playerId = Guid.NewGuid();
+        var worldId = Guid.NewGuid();
+        var request = new RegisterPlayerForWorldRequest { WorldId = worldId };
+
+        _playerServiceMock.Setup(x => x.RegisterPlayerForWorldAsync(playerId, worldId))
+            .ThrowsAsync(new InvalidOperationException("Player not found"));
+
+        // Act
+        var result = await _controller.RegisterPlayerForWorld(playerId, request);
+
+        // Assert
+        result.Should().BeOfType<NotFoundObjectResult>()
+            .Which.Value.Should().Be("Player not found");
+    }
+
+    [Fact]
+    public async Task RegisterPlayerForWorld_WithInvalidApiKey_ShouldReturnUnauthorized()
+    {
+        // Arrange
+        var httpContext = new DefaultHttpContext();
+        httpContext.Request.Headers["X-API-Key"] = "invalid-key";
+        _controller.ControllerContext = new ControllerContext
+        {
+            HttpContext = httpContext
+        };
+
+        var playerId = Guid.NewGuid();
+        var worldId = Guid.NewGuid();
+        var request = new RegisterPlayerForWorldRequest { WorldId = worldId };
+
+        // Act
+        var result = await _controller.RegisterPlayerForWorld(playerId, request);
+
+        // Assert
+        result.Should().BeOfType<UnauthorizedObjectResult>();
+        _playerServiceMock.Verify(x => x.RegisterPlayerForWorldAsync(It.IsAny<Guid>(), It.IsAny<Guid>()), Times.Never);
+    }
+
 }

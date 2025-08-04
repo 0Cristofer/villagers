@@ -75,6 +75,9 @@ public class World
                 case TestCommand testCmd:
                     ProcessTestCommand(testCmd);
                     break;
+                case RegisterPlayerCommand registerCmd:
+                    ProcessRegisterPlayerCommand(registerCmd);
+                    break;
                 default:
                     Console.WriteLine($"Unknown command type: {command.GetType().Name} from player {command.PlayerId}");
                     break;
@@ -86,6 +89,13 @@ public class World
     {
         Console.WriteLine($"Processing test command from player {command.PlayerId}: {command.Message} at {command.Timestamp}");
         Message = command.Message; // Temporary test
+    }
+
+    private void ProcessRegisterPlayerCommand(RegisterPlayerCommand command)
+    {
+        Console.WriteLine($"Processing player registration: Player {command.PlayerId} registering for world {Id} at {command.Timestamp}");
+        // TODO: Add player to world's registered players list
+        // For now, just log the registration
     }
 
     public void Stop()

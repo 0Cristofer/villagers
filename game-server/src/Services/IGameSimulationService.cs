@@ -5,4 +5,5 @@ namespace Villagers.GameServer.Services;
 public interface IGameSimulationService : IHostedService
 {
     void EnqueueCommand(ICommand command);
+    Guid GetWorldId();
 }

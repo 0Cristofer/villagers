@@ -178,6 +178,27 @@ public class GameSimulationServiceTests
         _worldRegistrationServiceMock.Verify(x => x.UnregisterWorldAsync(It.IsAny<Villagers.GameServer.Domain.World>()), Times.Once);
     }
 
+    [Fact]
+    public void GetWorldId_ShouldReturnWorldId()
+    {
+        // Act
+        var worldId = _service.GetWorldId();
 
+        // Assert
+        worldId.Should().NotBe(Guid.Empty);
+    }
+
+    [Fact]
+    public void EnqueueCommand_WithRegisterPlayerCommand_ShouldAcceptCommand()
+    {
+        // Arrange
+        var command = new RegisterPlayerCommand(Guid.NewGuid());
+
+        // Act
+        var exception = Record.Exception(() => _service.EnqueueCommand(command));
+
+        // Assert
+        exception.Should().BeNull();
+    }
 
 }

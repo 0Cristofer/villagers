@@ -1,7 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import './App.css';
 import { urls } from './config/env';
 import { Player, AuthResponse, LoginRequest, RegisterRequest, WorldResponse } from './types/api';
+import { HubConnectionBuilder, HubConnection } from '@microsoft/signalr';
+import { GameHubMethods } from './types/signalr';
 
 function App() {
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
@@ -14,6 +16,8 @@ function App() {
   const [isRegisterMode, setIsRegisterMode] = useState<boolean>(false);
   const [availableWorlds, setAvailableWorlds] = useState<WorldResponse[]>([]);
   const [worldsLoading, setWorldsLoading] = useState<boolean>(false);
+  const [registrationLoading, setRegistrationLoading] = useState<Set<string>>(new Set());
+  const connectionRefs = useRef<Map<string, HubConnection>>(new Map());
 
   // Check for existing token on component mount
   useEffect(() => {
@@ -170,7 +174,17 @@ function App() {
     }
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    // Close all SignalR connections
+    for (const [, connection] of connectionRefs.current) {
+      try {
+        await connection.stop();
+      } catch (error) {
+        console.error('Error stopping SignalR connection:', error);
+      }
+    }
+    connectionRefs.current.clear();
+    
     setIsLoggedIn(false);
     setPlayer(null);
     setToken(null);
@@ -185,6 +199,63 @@ function App() {
     setError('');
     setUsername('');
     setPassword('');
+  };
+
+  const createHubConnection = async (world: WorldResponse): Promise<HubConnection | undefined> => {
+    try {
+      const connection = new HubConnectionBuilder()
+        .withUrl(world.serverEndpoint)
+        .withAutomaticReconnect()
+        .build();
+
+      await connection.start();
+      console.log(`Connected to SignalR hub for world ${world.config.worldName}`);
+      return connection;
+    } catch (error) {
+      console.error(`Failed to connect to SignalR hub for world ${world.config.worldName}:`, error);
+      return undefined;
+    }
+  };
+
+  const registerForWorld = async (world: WorldResponse) => {
+    if (!player) return;
+    
+    const worldKey = world.worldId;
+    setRegistrationLoading(prev => new Set([...prev, worldKey]));
+    
+    try {
+      // Create or get existing connection for this world
+      let connection = connectionRefs.current.get(worldKey);
+      
+      if (!connection) {
+        connection = await createHubConnection(world);
+        if (!connection) {
+          throw new Error('Failed to establish SignalR connection');
+        }
+        connectionRefs.current.set(worldKey, connection);
+      }
+
+      // Call the RegisterForWorld method on the hub
+      await connection.invoke(GameHubMethods.RegisterForWorld, player.id);
+      
+      console.log(`Successfully registered for world ${world.config.worldName}`);
+      
+      // Clear any previous errors
+      setError('');
+      
+      // Refresh the available worlds to update the UI
+      await fetchAvailableWorlds();
+      
+    } catch (error) {
+      console.error(`Failed to register for world ${world.config.worldName}:`, error);
+      setError(`Failed to register for ${world.config.worldName}. Please try again.`);
+    } finally {
+      setRegistrationLoading(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(worldKey);
+        return newSet;
+      });
+    }
   };
 
   const renderAuthForm = () => (
@@ -314,8 +385,12 @@ function App() {
                     <p>Server: {world.serverEndpoint}</p>
                     <p>Tick Interval: {world.config.tickInterval}</p>
                     <p>Registered: {new Date(world.registeredAt).toLocaleDateString()}</p>
-                    <button className="register-world-button" disabled>
-                      Register (Coming Soon)
+                    <button 
+                      className="register-world-button"
+                      onClick={() => registerForWorld(world)}
+                      disabled={registrationLoading.has(world.worldId)}
+                    >
+                      {registrationLoading.has(world.worldId) ? 'Registering...' : 'Register'}
                     </button>
                   </div>
                 ))}

@@ -41,4 +41,11 @@ export type TypedHubConnection = {
   stop(): Promise<void>;
   on(methodName: string, newMethod: (...args: any[]) => void): void;
   off(methodName: string): void;
+  invoke(methodName: string, ...args: any[]): Promise<any>;
 };
+
+// Hub method names to avoid typos
+export const GameHubMethods = {
+  RegisterForWorld: 'RegisterForWorld',
+  SendTestCommand: 'SendTestCommand'
+} as const;

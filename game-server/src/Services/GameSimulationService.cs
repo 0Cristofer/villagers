@@ -59,6 +59,11 @@ public class GameSimulationService : BackgroundService, IGameSimulationService
         _commandQueue.EnqueueCommand(command);
     }
 
+    public Guid GetWorldId()
+    {
+        return _world.Id;
+    }
+
     private async Task OnWorldTick(World world)
     {
         _logger.LogDebug("World tick: {TickNumber}", world.TickNumber);
