@@ -59,7 +59,7 @@ public class PlayerTests
         // Arrange
         var id = Guid.NewGuid();
         var username = "testuser";
-        var worldIds = new List<int> { 1, 2, 3 };
+        var worldIds = new List<Guid> { Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid() };
         var createdAt = DateTime.UtcNow.AddDays(-1);
         var updatedAt = DateTime.UtcNow.AddHours(-1);
 
@@ -79,7 +79,7 @@ public class PlayerTests
     {
         // Arrange
         var player = new Player(Guid.NewGuid(), "testuser");
-        var worldId = 1;
+        var worldId = Guid.NewGuid();
 
         // Act
         player.RegisterForWorld(worldId);
@@ -94,7 +94,7 @@ public class PlayerTests
     {
         // Arrange
         var player = new Player(Guid.NewGuid(), "testuser");
-        var worldId = 1;
+        var worldId = Guid.NewGuid();
         player.RegisterForWorld(worldId);
         var initialUpdateTime = player.UpdatedAt;
 
@@ -114,7 +114,7 @@ public class PlayerTests
     {
         // Arrange
         var player = new Player(Guid.NewGuid(), "testuser");
-        var worldId = 1;
+        var worldId = Guid.NewGuid();
         player.RegisterForWorld(worldId);
 
         // Act
@@ -131,7 +131,7 @@ public class PlayerTests
         // Arrange
         var player = new Player(Guid.NewGuid(), "testuser");
         var initialUpdateTime = player.UpdatedAt;
-        var worldId = 1;
+        var worldId = Guid.NewGuid();
 
         // Wait a bit to ensure time difference
         Thread.Sleep(10);
@@ -149,7 +149,7 @@ public class PlayerTests
     {
         // Arrange
         var player = new Player(Guid.NewGuid(), "testuser");
-        var worldId = 1;
+        var worldId = Guid.NewGuid();
         player.RegisterForWorld(worldId);
 
         // Act
@@ -164,7 +164,7 @@ public class PlayerTests
     {
         // Arrange
         var player = new Player(Guid.NewGuid(), "testuser");
-        var worldId = 1;
+        var worldId = Guid.NewGuid();
 
         // Act
         var result = player.IsRegisteredForWorld(worldId);
@@ -178,7 +178,7 @@ public class PlayerTests
     {
         // Arrange
         var player = new Player(Guid.NewGuid(), "testuser");
-        var worldIds = new[] { 1, 2, 3, 5, 8 };
+        var worldIds = new[] { Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid() };
 
         // Act
         foreach (var worldId in worldIds)

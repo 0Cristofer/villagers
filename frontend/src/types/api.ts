@@ -2,7 +2,7 @@
 export interface Player {
   id: string;
   username: string;
-  registeredWorldIds: number[];
+  registeredWorldIds: string[];
   createdAt: string;
   updatedAt: string;
 }
@@ -54,6 +54,19 @@ export interface WorldState {
   tickNumber: number;
   timestamp: string;
   message?: string;
+}
+
+// World registry types from API
+export interface WorldConfig {
+  worldName: string;
+  tickInterval: string; // TimeSpan serializes as string
+}
+
+export interface WorldResponse {
+  worldId: string;
+  serverEndpoint: string;
+  config: WorldConfig;
+  registeredAt: string;
 }
 
 // Game mechanics types (for future expansion)

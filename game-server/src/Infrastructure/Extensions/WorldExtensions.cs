@@ -1,6 +1,8 @@
+using Villagers.GameServer.Configuration;
 using Villagers.GameServer.Domain;
 using Villagers.GameServer.Domain.Commands;
 using Villagers.GameServer.Entities;
+using Villagers.GameServer.Extensions;
 
 namespace Villagers.GameServer.Infrastructure.Extensions;
 
@@ -10,14 +12,15 @@ public static class WorldExtensions
     {
         return new WorldEntity
         {
-            Name = world.Name,
+            Id = world.Id,
             TickNumber = world.TickNumber,
             LastUpdated = DateTime.UtcNow
         };
     }
 
-    public static World ToDomain(this WorldEntity entity, CommandQueue commandQueue)
+    public static World ToDomain(this WorldEntity entity, CommandQueue commandQueue, WorldConfiguration config)
     {
-        return new World(entity.Name, TimeSpan.FromSeconds(1), commandQueue, (int)entity.TickNumber);
+        var domainConfig = config.ToDomain();
+        return new World(entity.Id, domainConfig, commandQueue, (int)entity.TickNumber);
     }
 }

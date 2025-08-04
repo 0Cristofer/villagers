@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Villagers.GameServer.Configuration;
 using Villagers.GameServer.Infrastructure.Data;
 using Villagers.GameServer.Infrastructure.Repositories;
 using Villagers.GameServer.Services;
@@ -23,8 +24,21 @@ public static class ServiceCollectionExtensions
         return services;
     }
 
-    public static IServiceCollection AddGameServices(this IServiceCollection services)
+    public static IServiceCollection AddGameServices(this IServiceCollection services, IConfiguration configuration)
     {
+        // Register and validate world configuration
+        services.Configure<WorldConfiguration>(configuration);
+        services.AddOptions<WorldConfiguration>()
+            .Bind(configuration)
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
+        
+        // Add HTTP client for API communication
+        services.AddHttpClient();
+        
+        // Add world registration service
+        services.AddSingleton<IWorldRegistrationService, WorldRegistrationService>();
+        
         services.AddSignalR();
         services.AddSingleton<IGameSimulationService, GameSimulationService>();
         services.AddHostedService(provider => 

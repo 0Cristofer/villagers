@@ -1,0 +1,13 @@
+<Project>
+  <PropertyGroup>
+    <!-- Central version management -->
+    <EntityFrameworkVersion>9.0.7</EntityFrameworkVersion>
+    <AspNetCoreVersion>8.0.17</AspNetCoreVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Force consistent EF Core versions across all projects -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="$(EntityFrameworkVersion)" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Abstractions" Version="$(EntityFrameworkVersion)" />
+  </ItemGroup>
+</Project>

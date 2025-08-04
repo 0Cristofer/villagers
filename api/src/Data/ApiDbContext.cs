@@ -8,6 +8,8 @@ namespace Villagers.Api.Data;
 
 public class ApiDbContext : IdentityDbContext<PlayerEntity, IdentityRole<Guid>, Guid>
 {
+    public DbSet<WorldRegistryEntity> WorldRegistry { get; set; }
+
     public ApiDbContext(DbContextOptions<ApiDbContext> options) : base(options)
     {
     }
@@ -23,11 +25,11 @@ public class ApiDbContext : IdentityDbContext<PlayerEntity, IdentityRole<Guid>, 
                 .HasConversion(
                     v => string.Join(',', v),
                     v => v.Split(',', StringSplitOptions.RemoveEmptyEntries)
-                          .Select(int.Parse)
+                          .Select(Guid.Parse)
                           .ToList()
                 )
                 .Metadata.SetValueComparer(
-                    new ValueComparer<List<int>>(
+                    new ValueComparer<List<Guid>>(
                         (c1, c2) => c1!.SequenceEqual(c2!),
                         c => c.Aggregate(0, (a, v) => HashCode.Combine(a, v.GetHashCode())),
                         c => c.ToList()
@@ -36,6 +38,16 @@ public class ApiDbContext : IdentityDbContext<PlayerEntity, IdentityRole<Guid>, 
             
             entity.Property(e => e.CreatedAt).HasDefaultValueSql("NOW()");
             entity.Property(e => e.UpdatedAt).HasDefaultValueSql("NOW()");
+        });
+
+        // WorldRegistryEntity configuration with owned Config
+        modelBuilder.Entity<WorldRegistryEntity>(entity =>
+        {
+            entity.OwnsOne(e => e.Config, config =>
+            {
+                config.Property(c => c.WorldName).HasMaxLength(100).IsRequired();
+                config.Property(c => c.TickInterval).IsRequired();
+            });
         });
     }
 }
