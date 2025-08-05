@@ -1,12 +1,12 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 using Villagers.GameServer.Domain.Commands;
+using Villagers.GameServer.Domain.Enums;
 using Villagers.GameServer.Interfaces;
 using Villagers.GameServer.Services;
 
 namespace Villagers.GameServer;
 
-[Authorize]
 public class GameHub : Hub<IGameClient>
 {
     private readonly ILogger<GameHub> _logger;
@@ -32,6 +32,7 @@ public class GameHub : Hub<IGameClient>
         await base.OnDisconnectedAsync(exception);
     }
 
+    [Authorize]
     public void SendTestCommand(Guid playerId, string message)
     {
         _logger.LogInformation("Received test command from player {PlayerId} via SignalR: {Message}", playerId, message);
@@ -40,9 +41,10 @@ public class GameHub : Hub<IGameClient>
         _gameService.EnqueueCommand(command);
     }
 
-    public async Task RegisterForWorld(Guid playerId)
+    [Authorize]
+    public async Task RegisterForWorld(Guid playerId, StartingDirection startingDirection)
     {
-        _logger.LogInformation("Player {PlayerId} requesting registration for this world", playerId);
+        _logger.LogInformation("Player {PlayerId} requesting registration for this world with starting direction {StartingDirection}", playerId, startingDirection);
         
         // Get the world ID from the game service
         var worldId = _gameService.GetWorldId();
@@ -51,9 +53,9 @@ public class GameHub : Hub<IGameClient>
         await _playerRegistrationService.RegisterPlayerForWorldAsync(playerId, worldId);
         
         // Enqueue command for game simulation processing
-        var command = new RegisterPlayerCommand(playerId);
+        var command = new RegisterPlayerCommand(playerId, startingDirection);
         _gameService.EnqueueCommand(command);
         
-        _logger.LogInformation("Successfully processed registration for player {PlayerId} and world {WorldId}", playerId, worldId);
+        _logger.LogInformation("Successfully processed registration for player {PlayerId} and world {WorldId} with direction {StartingDirection}", playerId, worldId, startingDirection);
     }
 }

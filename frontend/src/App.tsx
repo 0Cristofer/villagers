@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import './App.css';
 import { urls } from './config/env';
-import { Player, AuthResponse, LoginRequest, RegisterRequest, WorldResponse } from './types/api';
+import { Player, AuthResponse, LoginRequest, RegisterRequest, WorldResponse, StartingDirection } from './types/api';
 import { HubConnectionBuilder, HubConnection } from '@microsoft/signalr';
 import { GameHubMethods } from './types/signalr';
 
@@ -17,6 +17,10 @@ function App() {
   const [availableWorlds, setAvailableWorlds] = useState<WorldResponse[]>([]);
   const [worldsLoading, setWorldsLoading] = useState<boolean>(false);
   const [registrationLoading, setRegistrationLoading] = useState<Set<string>>(new Set());
+  const [showDirectionSelection, setShowDirectionSelection] = useState<boolean>(false);
+  const [selectedWorld, setSelectedWorld] = useState<WorldResponse | null>(null);
+  const [selectedDirection, setSelectedDirection] = useState<StartingDirection>(StartingDirection.North);
+  const [showGamePage, setShowGamePage] = useState<boolean>(false);
   const connectionRefs = useRef<Map<string, HubConnection>>(new Map());
 
   // Check for existing token on component mount
@@ -219,10 +223,16 @@ function App() {
     }
   };
 
-  const registerForWorld = async (world: WorldResponse) => {
-    if (!player) return;
+  const showDirectionSelectionForWorld = (world: WorldResponse) => {
+    setSelectedWorld(world);
+    setShowDirectionSelection(true);
+    setError('');
+  };
+
+  const confirmRegistration = async () => {
+    if (!player || !selectedWorld) return;
     
-    const worldKey = world.worldId;
+    const worldKey = selectedWorld.worldId;
     setRegistrationLoading(prev => new Set([...prev, worldKey]));
     
     try {
@@ -230,27 +240,28 @@ function App() {
       let connection = connectionRefs.current.get(worldKey);
       
       if (!connection) {
-        connection = await createHubConnection(world);
+        connection = await createHubConnection(selectedWorld);
         if (!connection) {
           throw new Error('Failed to establish SignalR connection');
         }
         connectionRefs.current.set(worldKey, connection);
       }
 
-      // Call the RegisterForWorld method on the hub
-      await connection.invoke(GameHubMethods.RegisterForWorld, player.id);
+      // Call the RegisterForWorld method on the hub with direction
+      await connection.invoke(GameHubMethods.RegisterForWorld, player.id, selectedDirection);
       
-      console.log(`Successfully registered for world ${world.config.worldName}`);
+      console.log(`Successfully registered for world ${selectedWorld.config.worldName} with direction ${StartingDirection[selectedDirection]}`);
       
       // Clear any previous errors
       setError('');
       
-      // Refresh the available worlds to update the UI
-      await fetchAvailableWorlds();
+      // Go to game page
+      setShowGamePage(true);
+      setShowDirectionSelection(false);
       
     } catch (error) {
-      console.error(`Failed to register for world ${world.config.worldName}:`, error);
-      setError(`Failed to register for ${world.config.worldName}. Please try again.`);
+      console.error(`Failed to register for world ${selectedWorld.config.worldName}:`, error);
+      setError(`Failed to register for ${selectedWorld.config.worldName}. Please try again.`);
     } finally {
       setRegistrationLoading(prev => {
         const newSet = new Set(prev);
@@ -258,6 +269,17 @@ function App() {
         return newSet;
       });
     }
+  };
+
+  const enterWorld = (world: WorldResponse) => {
+    setSelectedWorld(world);
+    setShowGamePage(true);
+  };
+
+  const backToWorldSelection = () => {
+    setShowDirectionSelection(false);
+    setSelectedWorld(null);
+    setShowGamePage(false);
   };
 
   const renderAuthForm = () => (
@@ -387,13 +409,22 @@ function App() {
                     <p>Server: {world.serverEndpoint}</p>
                     <p>Tick Interval: {world.config.tickInterval}</p>
                     <p>Registered: {new Date(world.registeredAt).toLocaleDateString()}</p>
-                    <button 
-                      className="register-world-button"
-                      onClick={() => registerForWorld(world)}
-                      disabled={registrationLoading.has(world.worldId)}
-                    >
-                      {registrationLoading.has(world.worldId) ? 'Registering...' : 'Register'}
-                    </button>
+                    {player?.registeredWorldIds.includes(world.worldId) ? (
+                      <button 
+                        className="enter-world-button"
+                        onClick={() => enterWorld(world)}
+                      >
+                        Enter World
+                      </button>
+                    ) : (
+                      <button 
+                        className="register-world-button"
+                        onClick={() => showDirectionSelectionForWorld(world)}
+                        disabled={registrationLoading.has(world.worldId)}
+                      >
+                        {registrationLoading.has(world.worldId) ? 'Registering...' : 'Register'}
+                      </button>
+                    )}
                   </div>
                 ))}
               </div>
@@ -419,9 +450,116 @@ function App() {
   }
 
 
+  const renderDirectionSelection = () => (
+    <div className="direction-selection-container">
+      <h2>Select Starting Direction</h2>
+      <p>Choose your starting direction for <strong>{selectedWorld?.config.worldName}</strong></p>
+      
+      <div className="direction-compass">
+        <div className="direction-row">
+          <button 
+            className={`direction-button ${selectedDirection === StartingDirection.Northwest ? 'selected' : ''}`}
+            onClick={() => setSelectedDirection(StartingDirection.Northwest)}
+          >
+            NW
+          </button>
+          <button 
+            className={`direction-button ${selectedDirection === StartingDirection.North ? 'selected' : ''}`}
+            onClick={() => setSelectedDirection(StartingDirection.North)}
+          >
+            N
+          </button>
+          <button 
+            className={`direction-button ${selectedDirection === StartingDirection.Northeast ? 'selected' : ''}`}
+            onClick={() => setSelectedDirection(StartingDirection.Northeast)}
+          >
+            NE
+          </button>
+        </div>
+        
+        <div className="direction-row">
+          <button 
+            className={`direction-button ${selectedDirection === StartingDirection.West ? 'selected' : ''}`}
+            onClick={() => setSelectedDirection(StartingDirection.West)}
+          >
+            W
+          </button>
+          <button 
+            className={`direction-button random ${selectedDirection === StartingDirection.Random ? 'selected' : ''}`}
+            onClick={() => setSelectedDirection(StartingDirection.Random)}
+          >
+            ?
+          </button>
+          <button 
+            className={`direction-button ${selectedDirection === StartingDirection.East ? 'selected' : ''}`}
+            onClick={() => setSelectedDirection(StartingDirection.East)}
+          >
+            E
+          </button>
+        </div>
+        
+        <div className="direction-row">
+          <button 
+            className={`direction-button ${selectedDirection === StartingDirection.Southwest ? 'selected' : ''}`}
+            onClick={() => setSelectedDirection(StartingDirection.Southwest)}
+          >
+            SW
+          </button>
+          <button 
+            className={`direction-button ${selectedDirection === StartingDirection.South ? 'selected' : ''}`}
+            onClick={() => setSelectedDirection(StartingDirection.South)}
+          >
+            S
+          </button>
+          <button 
+            className={`direction-button ${selectedDirection === StartingDirection.Southeast ? 'selected' : ''}`}
+            onClick={() => setSelectedDirection(StartingDirection.Southeast)}
+          >
+            SE
+          </button>
+        </div>
+      </div>
+      
+      <div className="direction-actions">
+        <button className="back-button" onClick={backToWorldSelection}>
+          Back to World Selection
+        </button>
+        <button 
+          className="confirm-button" 
+          onClick={confirmRegistration}
+          disabled={registrationLoading.has(selectedWorld?.worldId || '')}
+        >
+          {registrationLoading.has(selectedWorld?.worldId || '') ? 'Registering...' : 'Confirm Registration'}
+        </button>
+      </div>
+      
+      {error && <div className="error-message">{error}</div>}
+    </div>
+  );
+
+  const renderGamePage = () => (
+    <div className="game-page-container">
+      <h2>Welcome to {selectedWorld?.config.worldName}</h2>
+      <p>You are now in the game world!</p>
+      <p>Game content will be implemented here...</p>
+      
+      <button className="back-button" onClick={backToWorldSelection}>
+        Back to World Selection
+      </button>
+    </div>
+  );
+
   return (
     <div className="App">
-      {isLoggedIn && player ? renderWorldList() : renderAuthForm()}
+      {!isLoggedIn || !player ? (
+        renderAuthForm()
+      ) : showGamePage ? (
+        renderGamePage()
+      ) : showDirectionSelection ? (
+        renderDirectionSelection()
+      ) : (
+        renderWorldList()
+      )}
     </div>
   );
 }

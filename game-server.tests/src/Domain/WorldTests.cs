@@ -1,6 +1,7 @@
 using FluentAssertions;
 using Villagers.GameServer.Domain;
 using Villagers.GameServer.Domain.Commands;
+using Villagers.GameServer.Domain.Enums;
 using Xunit;
 
 namespace Villagers.GameServer.Tests.Domain;
@@ -143,7 +144,7 @@ public class WorldTests
     {
         // Arrange
         var playerId = Guid.NewGuid();
-        var registerCommand = new RegisterPlayerCommand(playerId);
+        var registerCommand = new RegisterPlayerCommand(playerId, StartingDirection.North);
         _commandQueue.EnqueueCommand(registerCommand);
 
         using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(50));
@@ -162,7 +163,7 @@ public class WorldTests
         // Arrange
         var playerId = Guid.NewGuid();
         var testCommand = new TestCommand(playerId, "Test Message");
-        var registerCommand = new RegisterPlayerCommand(playerId);
+        var registerCommand = new RegisterPlayerCommand(playerId, StartingDirection.North);
         
         _commandQueue.EnqueueCommand(testCommand);
         _commandQueue.EnqueueCommand(registerCommand);

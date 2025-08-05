@@ -5,6 +5,7 @@ using Microsoft.Extensions.Options;
 using Moq;
 using Villagers.GameServer.Configuration;
 using Villagers.GameServer.Domain.Commands;
+using Villagers.GameServer.Domain.Enums;
 using Villagers.GameServer.Interfaces;
 using Villagers.GameServer.Services;
 using Xunit;
@@ -192,7 +193,7 @@ public class GameSimulationServiceTests
     public void EnqueueCommand_WithRegisterPlayerCommand_ShouldAcceptCommand()
     {
         // Arrange
-        var command = new RegisterPlayerCommand(Guid.NewGuid());
+        var command = new RegisterPlayerCommand(Guid.NewGuid(), StartingDirection.Random);
 
         // Act
         var exception = Record.Exception(() => _service.EnqueueCommand(command));
