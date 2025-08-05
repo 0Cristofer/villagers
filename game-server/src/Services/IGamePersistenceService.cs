@@ -5,7 +5,7 @@ namespace Villagers.GameServer.Services;
 
 public interface IGamePersistenceService
 {
-    Task SaveWorldAsync(World world);
+    Task SaveWorldAndClearCommandsAsync(World world);
     Task<World?> GetWorldAsync();
     Task<List<List<ICommand>>> GetPersistedCommandsAsync();
 }

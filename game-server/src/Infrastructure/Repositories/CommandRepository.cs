@@ -80,4 +80,14 @@ public class CommandRepository : ICommandRepository
             await _context.SaveChangesAsync();
         }
     }
+
+    public async Task DeleteCommandsBeforeTickAsync(int tickNumber)
+    {
+        // Delete all commands with tick number less than the specified tick
+        var commandsToDelete = _context.Commands
+            .Where(c => c.TickNumber < tickNumber);
+            
+        _context.Commands.RemoveRange(commandsToDelete);
+        await _context.SaveChangesAsync();
+    }
 }

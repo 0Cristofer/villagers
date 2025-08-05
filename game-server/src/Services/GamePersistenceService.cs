@@ -15,9 +15,14 @@ public class GamePersistenceService : IGamePersistenceService
         _commandRepository = commandRepository;
     }
 
-    public async Task SaveWorldAsync(World world)
+    public async Task SaveWorldAndClearCommandsAsync(World world)
     {
+        // Save the world state first
         await _worldRepository.SaveWorldStateAsync(world);
+        
+        // Clear all commands before the current world tick
+        // This maintains only commands since the last world snapshot
+        await _commandRepository.DeleteCommandsBeforeTickAsync(world.TickNumber);
     }
 
     public async Task<World?> GetWorldAsync()

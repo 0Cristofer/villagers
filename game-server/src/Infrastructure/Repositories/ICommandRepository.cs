@@ -9,4 +9,5 @@ public interface ICommandRepository
     Task<List<List<ICommand>>> GetCommandsGroupedByTickAsync();
     Task SaveCommandAsync(ICommand command);
     Task DeleteCommandAsync(Guid id);
+    Task DeleteCommandsBeforeTickAsync(int tickNumber);
 }
