@@ -16,12 +16,13 @@ public class RegisterPlayerCommandTests
         var beforeTimestamp = DateTime.UtcNow;
 
         // Act
-        var command = new RegisterPlayerCommand(playerId, startingDirection);
+        var command = new RegisterPlayerCommand(playerId, startingDirection, 0);
         var afterTimestamp = DateTime.UtcNow;
 
         // Assert
         command.PlayerId.Should().Be(playerId);
         command.StartingDirection.Should().Be(startingDirection);
+        command.TickNumber.Should().Be(0);
         command.Timestamp.Should().BeAfter(beforeTimestamp.AddMilliseconds(-1));
         command.Timestamp.Should().BeBefore(afterTimestamp.AddMilliseconds(1));
     }
@@ -34,7 +35,7 @@ public class RegisterPlayerCommandTests
         var startingDirection = StartingDirection.North;
 
         // Act & Assert
-        var exception = Record.Exception(() => new RegisterPlayerCommand(playerId, startingDirection));
+        var exception = Record.Exception(() => new RegisterPlayerCommand(playerId, startingDirection, 0));
         exception.Should().BeOfType<ArgumentException>()
             .Which.Message.Should().Contain("Player ID cannot be empty");
     }
@@ -47,9 +48,9 @@ public class RegisterPlayerCommandTests
         var startingDirection = StartingDirection.East;
 
         // Act
-        var command1 = new RegisterPlayerCommand(playerId, startingDirection);
+        var command1 = new RegisterPlayerCommand(playerId, startingDirection, 0);
         await Task.Delay(1); // Ensure different timestamps
-        var command2 = new RegisterPlayerCommand(playerId, startingDirection);
+        var command2 = new RegisterPlayerCommand(playerId, startingDirection, 1);
 
         // Assert
         command1.Timestamp.Should().BeBefore(command2.Timestamp);
@@ -63,7 +64,7 @@ public class RegisterPlayerCommandTests
         var invalidDirection = (StartingDirection)999;
 
         // Act & Assert
-        var exception = Record.Exception(() => new RegisterPlayerCommand(playerId, invalidDirection));
+        var exception = Record.Exception(() => new RegisterPlayerCommand(playerId, invalidDirection, 0));
         exception.Should().BeOfType<ArgumentException>()
             .Which.Message.Should().Contain("Invalid starting direction");
     }
@@ -84,7 +85,7 @@ public class RegisterPlayerCommandTests
         var playerId = Guid.NewGuid();
 
         // Act
-        var command = new RegisterPlayerCommand(playerId, direction);
+        var command = new RegisterPlayerCommand(playerId, direction, 0);
 
         // Assert
         command.StartingDirection.Should().Be(direction);

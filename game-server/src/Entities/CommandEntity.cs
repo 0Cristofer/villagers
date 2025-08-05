@@ -17,5 +17,7 @@ public class CommandEntity
     [Required]
     public Guid PlayerId { get; set; }
     
+    public int TickNumber { get; set; }
+    
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }

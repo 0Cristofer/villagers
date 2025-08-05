@@ -87,7 +87,7 @@ public class WorldTests
     public async Task Run_WithTestCommand_ShouldProcessCommand()
     {
         // Arrange
-        var testCommand = new TestCommand(Guid.NewGuid(), "Hello World");
+        var testCommand = new TestCommand(Guid.NewGuid(), "Hello World", 0);
         _commandQueue.EnqueueCommand(testCommand);
 
         using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(50));
@@ -120,9 +120,9 @@ public class WorldTests
         // Arrange
         var commands = new[]
         {
-            new TestCommand(Guid.NewGuid(), "First"),
-            new TestCommand(Guid.NewGuid(), "Second"),
-            new TestCommand(Guid.NewGuid(), "Third")
+            new TestCommand(Guid.NewGuid(), "First", 0),
+            new TestCommand(Guid.NewGuid(), "Second", 1),
+            new TestCommand(Guid.NewGuid(), "Third", 2)
         };
 
         foreach (var cmd in commands)
@@ -144,7 +144,7 @@ public class WorldTests
     {
         // Arrange
         var playerId = Guid.NewGuid();
-        var registerCommand = new RegisterPlayerCommand(playerId, StartingDirection.North);
+        var registerCommand = new RegisterPlayerCommand(playerId, StartingDirection.North, 0);
         _commandQueue.EnqueueCommand(registerCommand);
 
         using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(50));
@@ -162,8 +162,8 @@ public class WorldTests
     {
         // Arrange
         var playerId = Guid.NewGuid();
-        var testCommand = new TestCommand(playerId, "Test Message");
-        var registerCommand = new RegisterPlayerCommand(playerId, StartingDirection.North);
+        var testCommand = new TestCommand(playerId, "Test Message", 0);
+        var registerCommand = new RegisterPlayerCommand(playerId, StartingDirection.North, 1);
         
         _commandQueue.EnqueueCommand(testCommand);
         _commandQueue.EnqueueCommand(registerCommand);

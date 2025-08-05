@@ -37,7 +37,8 @@ public class GameHub : Hub<IGameClient>
     {
         _logger.LogInformation("Received test command from player {PlayerId} via SignalR: {Message}", playerId, message);
         
-        var command = new TestCommand(playerId, message);
+        var currentTick = _gameService.GetCurrentTickNumber();
+        var command = new TestCommand(playerId, message, currentTick);
         _gameService.EnqueueCommand(command);
     }
 
@@ -53,7 +54,8 @@ public class GameHub : Hub<IGameClient>
         await _playerRegistrationService.RegisterPlayerForWorldAsync(playerId, worldId);
         
         // Enqueue command for game simulation processing
-        var command = new RegisterPlayerCommand(playerId, startingDirection);
+        var currentTick = _gameService.GetCurrentTickNumber();
+        var command = new RegisterPlayerCommand(playerId, startingDirection, currentTick);
         _gameService.EnqueueCommand(command);
         
         _logger.LogInformation("Successfully processed registration for player {PlayerId} and world {WorldId} with direction {StartingDirection}", playerId, worldId, startingDirection);

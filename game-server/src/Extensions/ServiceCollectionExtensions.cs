@@ -92,6 +92,9 @@ public static class ServiceCollectionExtensions
         // Add player registration service
         services.AddSingleton<IPlayerRegistrationService, PlayerRegistrationService>();
         
+        // Add game persistence service
+        services.AddScoped<IGamePersistenceService, GamePersistenceService>();
+        
         services.AddSignalR();
         services.AddSingleton<IGameSimulationService, GameSimulationService>();
         services.AddHostedService(provider => 

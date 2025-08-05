@@ -12,6 +12,7 @@ public static class CommandExtensions
         {
             Type = command.GetType().Name,
             PlayerId = command.PlayerId,
+            TickNumber = command.TickNumber,
             Payload = JsonSerializer.Serialize(command),
             CreatedAt = command.Timestamp
         };

@@ -64,6 +64,11 @@ public class GameSimulationService : BackgroundService, IGameSimulationService
         return _world.Id;
     }
 
+    public int GetCurrentTickNumber()
+    {
+        return _world.TickNumber;
+    }
+
     private async Task OnWorldTick(World world)
     {
         _logger.LogDebug("World tick: {TickNumber}", world.TickNumber);

@@ -68,7 +68,7 @@ public class GameSimulationServiceTests
     public void EnqueueCommand_ShouldAcceptCommand()
     {
         // Arrange
-        var command = new TestCommand(Guid.NewGuid(), "test message");
+        var command = new TestCommand(Guid.NewGuid(), "test message", 0);
 
         // Act
         var exception = Record.Exception(() => _service.EnqueueCommand(command));
@@ -113,9 +113,9 @@ public class GameSimulationServiceTests
         // Arrange
         var commands = new[]
         {
-            new TestCommand(Guid.NewGuid(), "message1"),
-            new TestCommand(Guid.NewGuid(), "message2"),
-            new TestCommand(Guid.NewGuid(), "message3")
+            new TestCommand(Guid.NewGuid(), "message1", 0),
+            new TestCommand(Guid.NewGuid(), "message2", 1),
+            new TestCommand(Guid.NewGuid(), "message3", 2)
         };
 
         // Act
@@ -190,10 +190,20 @@ public class GameSimulationServiceTests
     }
 
     [Fact]
+    public void GetCurrentTickNumber_ShouldReturnInitialTickNumber()
+    {
+        // Act
+        var tickNumber = _service.GetCurrentTickNumber();
+
+        // Assert
+        tickNumber.Should().Be(0);
+    }
+
+    [Fact]
     public void EnqueueCommand_WithRegisterPlayerCommand_ShouldAcceptCommand()
     {
         // Arrange
-        var command = new RegisterPlayerCommand(Guid.NewGuid(), StartingDirection.Random);
+        var command = new RegisterPlayerCommand(Guid.NewGuid(), StartingDirection.Random, 0);
 
         // Act
         var exception = Record.Exception(() => _service.EnqueueCommand(command));
