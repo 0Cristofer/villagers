@@ -7,4 +7,5 @@ public interface IGameSimulationService : IHostedService
     void EnqueueCommand(ICommand command);
     Guid GetWorldId();
     int GetCurrentTickNumber();
+    int GetNextTickNumber();
 }

@@ -4,8 +4,10 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Moq;
 using Villagers.GameServer.Configuration;
+using Villagers.GameServer.Domain;
 using Villagers.GameServer.Domain.Commands;
 using Villagers.GameServer.Domain.Enums;
+using Villagers.GameServer.Extensions;
 using Villagers.GameServer.Interfaces;
 using Villagers.GameServer.Services;
 using Xunit;
@@ -18,6 +20,7 @@ public class GameSimulationServiceTests
     private readonly Mock<IHubContext<GameHub, IGameClient>> _hubContextMock;
     private readonly Mock<IOptions<WorldConfiguration>> _worldConfigMock;
     private readonly Mock<IWorldRegistrationService> _worldRegistrationServiceMock;
+    private readonly Mock<IGamePersistenceService> _gamePersistenceServiceMock;
     private readonly GameSimulationService _service;
 
     public GameSimulationServiceTests()
@@ -26,6 +29,7 @@ public class GameSimulationServiceTests
         _hubContextMock = new Mock<IHubContext<GameHub, IGameClient>>();
         _worldConfigMock = new Mock<IOptions<WorldConfiguration>>();
         _worldRegistrationServiceMock = new Mock<IWorldRegistrationService>();
+        _gamePersistenceServiceMock = new Mock<IGamePersistenceService>();
         
         var clientsMock = new Mock<IHubClients<IGameClient>>();
         var clientProxyMock = new Mock<IGameClient>();
@@ -41,12 +45,16 @@ public class GameSimulationServiceTests
         };
         _worldConfigMock.Setup(x => x.Value).Returns(worldConfig);
         
+        // Setup persistence service to return no persisted world by default
+        _gamePersistenceServiceMock.Setup(x => x.GetWorldAsync()).ReturnsAsync((World?)null);
+        _gamePersistenceServiceMock.Setup(x => x.GetPersistedCommandsAsync()).ReturnsAsync(new List<List<ICommand>>());
         
         _service = new GameSimulationService(
             _loggerMock.Object, 
             _hubContextMock.Object, 
             _worldConfigMock.Object,
-            _worldRegistrationServiceMock.Object);
+            _worldRegistrationServiceMock.Object,
+            _gamePersistenceServiceMock.Object);
     }
 
     [Fact]
@@ -65,9 +73,10 @@ public class GameSimulationServiceTests
     }
 
     [Fact]
-    public void EnqueueCommand_ShouldAcceptCommand()
+    public async Task EnqueueCommand_ShouldAcceptCommand()
     {
         // Arrange
+        await _service.StartAsync(CancellationToken.None);
         var command = new TestCommand(Guid.NewGuid(), "test message", 0);
 
         // Act
@@ -108,9 +117,10 @@ public class GameSimulationServiceTests
     }
 
     [Fact]
-    public void EnqueueCommand_WithMultipleCommands_ShouldNotThrow()
+    public async Task EnqueueCommand_WithMultipleCommands_ShouldNotThrow()
     {
         // Arrange
+        await _service.StartAsync(CancellationToken.None);
         var commands = new[]
         {
             new TestCommand(Guid.NewGuid(), "message1", 0),
@@ -143,7 +153,8 @@ public class GameSimulationServiceTests
             _loggerMock.Object,
             _hubContextMock.Object,
             _worldConfigMock.Object,
-            registrationServiceMock.Object);
+            registrationServiceMock.Object,
+            _gamePersistenceServiceMock.Object);
 
         // Act & Assert
         var exception = await Record.ExceptionAsync(async () =>
@@ -180,8 +191,11 @@ public class GameSimulationServiceTests
     }
 
     [Fact]
-    public void GetWorldId_ShouldReturnWorldId()
+    public async Task GetWorldId_ShouldReturnWorldId()
     {
+        // Arrange
+        await _service.StartAsync(CancellationToken.None);
+        
         // Act
         var worldId = _service.GetWorldId();
 
@@ -189,20 +203,12 @@ public class GameSimulationServiceTests
         worldId.Should().NotBe(Guid.Empty);
     }
 
-    [Fact]
-    public void GetCurrentTickNumber_ShouldReturnInitialTickNumber()
-    {
-        // Act
-        var tickNumber = _service.GetCurrentTickNumber();
-
-        // Assert
-        tickNumber.Should().Be(0);
-    }
 
     [Fact]
-    public void EnqueueCommand_WithRegisterPlayerCommand_ShouldAcceptCommand()
+    public async Task EnqueueCommand_WithRegisterPlayerCommand_ShouldAcceptCommand()
     {
         // Arrange
+        await _service.StartAsync(CancellationToken.None);
         var command = new RegisterPlayerCommand(Guid.NewGuid(), StartingDirection.Random, 0);
 
         // Act
@@ -210,6 +216,91 @@ public class GameSimulationServiceTests
 
         // Assert
         exception.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task StartAsync_WithPersistedWorld_ShouldRestoreWorldAndReplayCommands()
+    {
+        // Arrange
+        var persistedWorldId = Guid.NewGuid();
+        var persistedTickNumber = 42;
+        var config = new WorldConfiguration
+        {
+            WorldName = "Persisted World",
+            TickInterval = TimeSpan.FromMilliseconds(100)
+        };
+        
+        // Create a persisted world
+        var persistedWorld = new World(persistedWorldId, config.ToDomain(), new CommandQueue(), persistedTickNumber);
+        
+        // Create some persisted commands grouped by tick
+        var persistedCommands = new List<List<ICommand>>
+        {
+            // Tick 43 commands
+            new List<ICommand>
+            {
+                new TestCommand(Guid.NewGuid(), "Command from tick 43", 43)
+            },
+            // Tick 44 commands  
+            new List<ICommand>
+            {
+                new TestCommand(Guid.NewGuid(), "First command from tick 44", 44),
+                new TestCommand(Guid.NewGuid(), "Second command from tick 44", 44)
+            }
+        };
+        
+        // Setup mocks to return persisted data
+        _gamePersistenceServiceMock.Setup(x => x.GetWorldAsync())
+            .ReturnsAsync(persistedWorld);
+        _gamePersistenceServiceMock.Setup(x => x.GetPersistedCommandsAsync())
+            .ReturnsAsync(persistedCommands);
+        
+        var service = new GameSimulationService(
+            _loggerMock.Object,
+            _hubContextMock.Object,
+            _worldConfigMock.Object,
+            _worldRegistrationServiceMock.Object,
+            _gamePersistenceServiceMock.Object);
+
+        // Act - Start the service but stop it immediately to prevent ongoing execution
+        await service.StartAsync(CancellationToken.None);
+        
+        // Stop the service immediately to prevent the background execution from continuing
+        await service.StopAsync(CancellationToken.None);
+
+        // Assert
+        // Verify that GetWorldAsync was called to check for persisted world
+        _gamePersistenceServiceMock.Verify(x => x.GetWorldAsync(), Times.Once);
+        
+        // Verify that GetPersistedCommandsAsync was called to get commands to replay
+        _gamePersistenceServiceMock.Verify(x => x.GetPersistedCommandsAsync(), Times.Once);
+        
+        // Verify the world was restored with correct properties
+        service.GetWorldId().Should().Be(persistedWorldId);
+        
+        // Verify that commands were replayed and world tick advanced
+        // World starts at tick 42, after processing 2 command groups it ends up at tick 44,
+        // but ExecuteAsync runs one more tick making it 45
+        service.GetCurrentTickNumber().Should().Be(45);
+        
+        // Verify logging of restoration
+        _loggerMock.Verify(
+            x => x.Log(
+                LogLevel.Information,
+                It.IsAny<EventId>(),
+                It.Is<It.IsAnyType>((o, t) => o.ToString()!.Contains("Found persisted world at tick 42")),
+                It.IsAny<Exception>(),
+                It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
+            Times.Once);
+            
+        _loggerMock.Verify(
+            x => x.Log(
+                LogLevel.Information,
+                It.IsAny<EventId>(),
+                It.Is<It.IsAnyType>((o, t) => o.ToString()!.Contains("Replaying 2 tick groups")),
+                It.IsAny<Exception>(),
+                It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
+            Times.Once);
     }
 
 }

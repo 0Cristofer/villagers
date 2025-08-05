@@ -13,7 +13,7 @@ public static class WorldExtensions
         return new WorldEntity
         {
             Id = world.Id,
-            TickNumber = world.TickNumber,
+            TickNumber = world.GetCurrentTickNumber(),
             LastUpdated = DateTime.UtcNow
         };
     }

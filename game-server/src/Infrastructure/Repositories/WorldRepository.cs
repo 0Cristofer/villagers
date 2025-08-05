@@ -44,7 +44,7 @@ public class WorldRepository : IWorldRepository
         {
             // Update existing entity
             existingEntity.Id = world.Id;
-            existingEntity.TickNumber = world.TickNumber;
+            existingEntity.TickNumber = world.GetCurrentTickNumber();
             existingEntity.LastUpdated = DateTime.UtcNow;
         }
         

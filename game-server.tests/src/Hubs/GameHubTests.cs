@@ -36,7 +36,7 @@ public class GameHubTests
         var startingDirection = StartingDirection.North;
         
         _gameServiceMock.Setup(x => x.GetWorldId()).Returns(worldId);
-        _gameServiceMock.Setup(x => x.GetCurrentTickNumber()).Returns(5);
+        _gameServiceMock.Setup(x => x.GetNextTickNumber()).Returns(6);
 
         // Act
         await _hub.RegisterForWorld(playerId, startingDirection);
@@ -44,7 +44,7 @@ public class GameHubTests
         // Assert
         _playerRegistrationServiceMock.Verify(x => x.RegisterPlayerForWorldAsync(playerId, worldId), Times.Once);
         _gameServiceMock.Verify(x => x.EnqueueCommand(It.Is<RegisterPlayerCommand>(cmd => 
-            cmd.PlayerId == playerId && cmd.StartingDirection == startingDirection && cmd.TickNumber == 5)), Times.Once);
+            cmd.PlayerId == playerId && cmd.StartingDirection == startingDirection && cmd.TickNumber == 6)), Times.Once);
     }
 
     [Fact]
@@ -103,7 +103,7 @@ public class GameHubTests
         var worldId = Guid.NewGuid();
         
         _gameServiceMock.Setup(x => x.GetWorldId()).Returns(worldId);
-        _gameServiceMock.Setup(x => x.GetCurrentTickNumber()).Returns(10);
+        _gameServiceMock.Setup(x => x.GetNextTickNumber()).Returns(11);
 
         // Act
         await _hub.RegisterForWorld(playerId, direction);
@@ -111,6 +111,6 @@ public class GameHubTests
         // Assert
         _playerRegistrationServiceMock.Verify(x => x.RegisterPlayerForWorldAsync(playerId, worldId), Times.Once);
         _gameServiceMock.Verify(x => x.EnqueueCommand(It.Is<RegisterPlayerCommand>(cmd => 
-            cmd.PlayerId == playerId && cmd.StartingDirection == direction && cmd.TickNumber == 10)), Times.Once);
+            cmd.PlayerId == playerId && cmd.StartingDirection == direction && cmd.TickNumber == 11)), Times.Once);
     }
 }

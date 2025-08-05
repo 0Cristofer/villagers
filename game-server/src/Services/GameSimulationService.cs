@@ -12,32 +12,89 @@ public class GameSimulationService : BackgroundService, IGameSimulationService
 {
     private readonly ILogger<GameSimulationService> _logger;
     private readonly IHubContext<GameHub, IGameClient> _hubContext;
-    private readonly CommandQueue _commandQueue;
-    private readonly World _world;
+    private World _world;
     private readonly IWorldRegistrationService _worldRegistrationService;
+    private readonly IGamePersistenceService _gamePersistenceService;
+    private readonly WorldConfiguration _worldConfig;
 
     public GameSimulationService(
         ILogger<GameSimulationService> logger, 
         IHubContext<GameHub, IGameClient> hubContext,
         IOptions<WorldConfiguration> worldConfig,
-        IWorldRegistrationService worldRegistrationService)
+        IWorldRegistrationService worldRegistrationService,
+        IGamePersistenceService gamePersistenceService)
     {
         _logger = logger;
         _hubContext = hubContext;
         _worldRegistrationService = worldRegistrationService;
-        _commandQueue = new CommandQueue();
+        _gamePersistenceService = gamePersistenceService;
+        _worldConfig = worldConfig.Value;
         
-        var config = worldConfig.Value.ToDomain();
-        _world = new World(config, _commandQueue);
+        // World will be initialized in StartAsync
+        _world = null!;
+    }
+
+    public override async Task StartAsync(CancellationToken cancellationToken)
+    {
+        await InitializeWorldAsync(cancellationToken);
+        await base.StartAsync(cancellationToken);
+    }
+
+    private async Task InitializeWorldAsync(CancellationToken cancellationToken)
+    {
+        // Try to load persisted world first
+        var persistedWorld = await _gamePersistenceService.GetWorldAsync();
         
-        // Subscribe to world tick events
-        _world.TickOccurredEvent += OnWorldTick;
+        if (persistedWorld != null)
+        {
+            _logger.LogInformation("Found persisted world at tick {TickNumber}, loading...", persistedWorld.GetCurrentTickNumber());
+            _world = persistedWorld;
+            
+            // Replay persisted commands
+            await ReplayPersistedCommandsAsync(cancellationToken);
+        }
+        else
+        {
+            _logger.LogInformation("No persisted world found, creating new world");
+            var config = _worldConfig.ToDomain();
+            var commandQueue = new CommandQueue();
+            _world = new World(config, commandQueue);
+        }
+    }
+
+    private async Task ReplayPersistedCommandsAsync(CancellationToken cancellationToken)
+    {
+        var commandGroups = await _gamePersistenceService.GetPersistedCommandsAsync();
+        
+        if (commandGroups.Count == 0)
+        {
+            return;
+        }
+        
+        _logger.LogInformation("Replaying {GroupCount} tick groups of persisted commands...", commandGroups.Count);
+        
+        foreach (var tickCommands in commandGroups)
+        {
+            // Enqueue all commands for this tick
+            foreach (var command in tickCommands)
+            {
+                _world.EnqueueCommand(command);
+            }
+            
+            // Run one tick to process this group of commands (skip delay for fast replay)
+            await _world.Run(1, true, cancellationToken);
+        }
+        
+        _logger.LogInformation("Command replay complete. World is now at tick {TickNumber}", _world.GetCurrentTickNumber());
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         _logger.LogInformation("Game Simulation Service started - World: {WorldName}", _world.Config.WorldName);
 
+        // Subscribe to world tick events for real-time updates
+        _world.TickOccurredEvent += OnWorldTick;
+        
         // Register with API
         await _worldRegistrationService.RegisterWorldAsync(_world);
         
@@ -56,7 +113,7 @@ public class GameSimulationService : BackgroundService, IGameSimulationService
 
     public void EnqueueCommand(ICommand command)
     {
-        _commandQueue.EnqueueCommand(command);
+        _world.EnqueueCommand(command);
     }
 
     public Guid GetWorldId()
@@ -66,12 +123,17 @@ public class GameSimulationService : BackgroundService, IGameSimulationService
 
     public int GetCurrentTickNumber()
     {
-        return _world.TickNumber;
+        return _world.GetCurrentTickNumber();
+    }
+
+    public int GetNextTickNumber()
+    {
+        return _world.GetNextTickNumber();
     }
 
     private async Task OnWorldTick(World world)
     {
-        _logger.LogDebug("World tick: {TickNumber}", world.TickNumber);
+        _logger.LogDebug("World tick: {TickNumber}", world.GetCurrentTickNumber());
         
         // Broadcast world state to all connected clients
         await _hubContext.Clients.All.WorldUpdate(world.ToDto());

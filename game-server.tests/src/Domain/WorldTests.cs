@@ -24,7 +24,7 @@ public class WorldTests
     {
         // Assert
         _world.Config.WorldName.Should().Be("Test World");
-        _world.TickNumber.Should().Be(0);
+        _world.GetCurrentTickNumber().Should().Be(0);
         _world.Message.Should().BeEmpty();
     }
 
@@ -55,13 +55,13 @@ public class WorldTests
     {
         // Arrange
         using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(50));
-        var initialTickNumber = _world.TickNumber;
+        var initialTickNumber = _world.GetCurrentTickNumber();
 
         // Act
         await _world.Run(cts.Token);
 
         // Assert
-        _world.TickNumber.Should().BeGreaterThan(initialTickNumber);
+        _world.GetCurrentTickNumber().Should().BeGreaterThan(initialTickNumber);
     }
 
     [Fact]
@@ -154,7 +154,7 @@ public class WorldTests
 
         // Assert - Command should be processed without throwing
         // (We don't have observable state changes yet, but command processing shouldn't crash)
-        _world.TickNumber.Should().BeGreaterThan(0);
+        _world.GetCurrentTickNumber().Should().BeGreaterThan(0);
     }
 
     [Fact]
@@ -175,6 +175,6 @@ public class WorldTests
 
         // Assert
         _world.Message.Should().Be("Test Message");
-        _world.TickNumber.Should().BeGreaterThan(0);
+        _world.GetCurrentTickNumber().Should().BeGreaterThan(0);
     }
 }

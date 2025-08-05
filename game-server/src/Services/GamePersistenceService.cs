@@ -22,7 +22,7 @@ public class GamePersistenceService : IGamePersistenceService
         
         // Clear all commands before the current world tick
         // This maintains only commands since the last world snapshot
-        await _commandRepository.DeleteCommandsBeforeTickAsync(world.TickNumber);
+        await _commandRepository.DeleteCommandsBeforeTickAsync(world.GetCurrentTickNumber());
     }
 
     public async Task<World?> GetWorldAsync()
