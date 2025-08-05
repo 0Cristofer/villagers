@@ -2,7 +2,6 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Villagers.GameServer.Configuration;
 using Villagers.GameServer.Domain;
-using Villagers.GameServer.Domain.Commands;
 using Villagers.GameServer.Infrastructure.Data;
 using Villagers.GameServer.Infrastructure.Extensions;
 
@@ -19,7 +18,7 @@ public class WorldRepository : IWorldRepository
         _worldConfig = worldConfig.Value;
     }
 
-    public async Task<World?> GetCurrentWorldAsync(CommandQueue commandQueue)
+    public async Task<World?> GetCurrentWorldAsync()
     {
         var worldEntity = await _context.WorldStates.FirstOrDefaultAsync();
         
@@ -28,7 +27,7 @@ public class WorldRepository : IWorldRepository
             return null;
         }
         
-        return worldEntity.ToDomain(commandQueue, _worldConfig);
+        return worldEntity.ToDomain(_worldConfig);
     }
 
     public async Task SaveWorldStateAsync(World world)

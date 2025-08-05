@@ -18,9 +18,10 @@ public static class WorldExtensions
         };
     }
 
-    public static World ToDomain(this WorldEntity entity, CommandQueue commandQueue, WorldConfiguration config)
+    public static World ToDomain(this WorldEntity entity, WorldConfiguration config)
     {
         var domainConfig = config.ToDomain();
+        var commandQueue = new CommandQueue();
         return new World(entity.Id, domainConfig, commandQueue, (int)entity.TickNumber);
     }
 }

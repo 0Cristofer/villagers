@@ -1,5 +1,4 @@
 using Villagers.GameServer.Domain;
-using Villagers.GameServer.Domain.Commands;
 using Villagers.GameServer.Infrastructure.Repositories;
 
 namespace Villagers.GameServer.Services;
@@ -20,7 +19,6 @@ public class GamePersistenceService : IGamePersistenceService
 
     public async Task<World?> GetWorldAsync()
     {
-        var commandQueue = new CommandQueue();
-        return await _worldRepository.GetCurrentWorldAsync(commandQueue);
+        return await _worldRepository.GetCurrentWorldAsync();
     }
 }
