@@ -28,6 +28,8 @@ public class GameDbContext : DbContext
         {
             entity.HasKey(e => e.Id);
             entity.HasIndex(e => e.CreatedAt);
+            // Composite index for optimal GROUP BY TickNumber ORDER BY CreatedAt performance
+            entity.HasIndex(e => new { e.TickNumber, e.CreatedAt });
             entity.Property(e => e.CreatedAt).HasDefaultValueSql("NOW()");
             entity.Property(e => e.Payload).HasColumnType("jsonb");
         });
