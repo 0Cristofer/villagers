@@ -11,6 +11,7 @@ builder.Configuration.AddJsonFile($"worldconfig.{builder.Environment.Environment
 builder.Services
     .AddDatabase(builder.Configuration)
     .AddRepositories()
+    .AddJwtAuthentication(builder.Configuration)
     .AddGameServices(builder.Configuration)
     .AddCorsPolicy(builder.Configuration);
 
@@ -42,6 +43,9 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 app.UseCors("AllowClients");
+
+app.UseAuthentication();
+app.UseAuthorization();
 
 // No API endpoints needed - using SignalR only
 

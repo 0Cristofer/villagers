@@ -1,9 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using Villagers.Api.Data;
-using Villagers.Api.Domain;
-using Villagers.Api.Extensions;
 using Villagers.Api.Models;
+using Villagers.Api.Services;
 
 namespace Villagers.Api.Controllers;
 
@@ -11,13 +8,15 @@ namespace Villagers.Api.Controllers;
 [Route("api/internal")]
 public class InternalController : ControllerBase
 {
-    private readonly ApiDbContext _context;
     private readonly IConfiguration _configuration;
+    private readonly IPlayerService _playerService;
+    private readonly IWorldRegistryService _worldRegistryService;
 
-    public InternalController(ApiDbContext context, IConfiguration configuration)
+    public InternalController(IConfiguration configuration, IPlayerService playerService, IWorldRegistryService worldRegistryService)
     {
-        _context = context;
         _configuration = configuration;
+        _playerService = playerService;
+        _worldRegistryService = worldRegistryService;
     }
 
     [HttpPost("worlds/register")]
@@ -29,15 +28,8 @@ public class InternalController : ControllerBase
             return Unauthorized("Invalid API key");
         }
 
-        // Create domain object
-        var worldRegistry = request.ToDomain();
-
-        // Convert to entity and persist
-        var entity = worldRegistry.ToEntity();
-        _context.WorldRegistry.Add(entity);
-        await _context.SaveChangesAsync();
-
-        return Ok(new { Id = worldRegistry.Id });
+        var worldId = await _worldRegistryService.RegisterWorldAsync(request);
+        return Ok(new { Id = worldId });
     }
 
     [HttpDelete("worlds/{id}")]
@@ -49,16 +41,33 @@ public class InternalController : ControllerBase
             return Unauthorized("Invalid API key");
         }
 
-        var entity = await _context.WorldRegistry.FirstOrDefaultAsync(w => w.WorldId == id);
-        if (entity == null)
+        var success = await _worldRegistryService.UnregisterWorldAsync(id);
+        if (!success)
         {
             return NotFound();
         }
 
-        _context.WorldRegistry.Remove(entity);
-        await _context.SaveChangesAsync();
-
         return NoContent();
+    }
+
+    [HttpPost("players/{playerId}/register-world")]
+    public async Task<IActionResult> RegisterPlayerForWorld(Guid playerId, [FromBody] RegisterPlayerForWorldRequest request)
+    {
+        // API Key authentication
+        if (!IsValidApiKey())
+        {
+            return Unauthorized("Invalid API key");
+        }
+
+        try
+        {
+            await _playerService.RegisterPlayerForWorldAsync(playerId, request.WorldId);
+            return Ok();
+        }
+        catch (InvalidOperationException ex)
+        {
+            return NotFound(ex.Message);
+        }
     }
 
     private bool IsValidApiKey()

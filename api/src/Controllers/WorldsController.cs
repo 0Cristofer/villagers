@@ -1,8 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using Villagers.Api.Data;
 using Villagers.Api.Extensions;
 using Villagers.Api.Models;
+using Villagers.Api.Services;
 
 namespace Villagers.Api.Controllers;
 
@@ -10,37 +9,30 @@ namespace Villagers.Api.Controllers;
 [Route("api/worlds")]
 public class WorldsController : ControllerBase
 {
-    private readonly ApiDbContext _context;
+    private readonly IWorldRegistryService _worldRegistryService;
 
-    public WorldsController(ApiDbContext context)
+    public WorldsController(IWorldRegistryService worldRegistryService)
     {
-        _context = context;
+        _worldRegistryService = worldRegistryService;
     }
 
     [HttpGet]
     public async Task<ActionResult<IEnumerable<WorldResponse>>> GetWorlds()
     {
-        var entities = await _context.WorldRegistry
-            .OrderBy(w => w.RegisteredAt)
-            .ToListAsync();
-
-        var worlds = entities
-            .Select(e => e.ToDomain().ToModel())
-            .ToList();
-
-        return Ok(worlds);
+        var worlds = await _worldRegistryService.GetAllWorldsAsync();
+        var worldResponses = worlds.Select(w => w.ToModel());
+        return Ok(worldResponses);
     }
 
-    [HttpGet("{id}")]
-    public async Task<ActionResult<WorldResponse>> GetWorld(Guid id)
+    [HttpGet("{worldId}")]
+    public async Task<ActionResult<WorldResponse>> GetWorld(Guid worldId)
     {
-        var entity = await _context.WorldRegistry.FirstOrDefaultAsync(w => w.WorldId == id || w.Id == id);
-        if (entity == null)
+        var world = await _worldRegistryService.GetWorldAsync(worldId);
+        if (world == null)
         {
             return NotFound();
         }
 
-        var world = entity.ToDomain().ToModel();
-        return Ok(world);
+        return Ok(world.ToModel());
     }
 }

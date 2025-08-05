@@ -91,6 +91,8 @@ public static class ServiceCollectionExtensions
     {
         services.AddControllers();
         services.AddScoped<IJwtService, JwtService>();
+        services.AddScoped<IWorldRegistryService, WorldRegistryService>();
+        services.AddScoped<IPlayerService, PlayerService>();
         services.AddEndpointsApiExplorer();
         services.AddSwaggerGen();
 
