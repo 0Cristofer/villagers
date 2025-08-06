@@ -26,6 +26,7 @@ public class GameSimulationServiceTests
     private readonly Mock<IServiceScopeFactory> _serviceScopeFactoryMock;
     private readonly Mock<IServiceScope> _serviceScopeMock;
     private readonly Mock<IServiceProvider> _serviceProviderMock;
+    private readonly Mock<IWorldPersistenceBackgroundService> _worldPersistenceServiceMock;
     private readonly GameSimulationService _service;
 
     public GameSimulationServiceTests()
@@ -38,6 +39,7 @@ public class GameSimulationServiceTests
         _serviceScopeFactoryMock = new Mock<IServiceScopeFactory>();
         _serviceScopeMock = new Mock<IServiceScope>();
         _serviceProviderMock = new Mock<IServiceProvider>();
+        _worldPersistenceServiceMock = new Mock<IWorldPersistenceBackgroundService>();
         
         var clientsMock = new Mock<IHubClients<IGameClient>>();
         var clientProxyMock = new Mock<IGameClient>();
@@ -68,7 +70,8 @@ public class GameSimulationServiceTests
             _hubContextMock.Object, 
             _worldConfigMock.Object,
             _worldRegistrationServiceMock.Object,
-            _serviceScopeFactoryMock.Object);
+            _serviceScopeFactoryMock.Object,
+            _worldPersistenceServiceMock.Object);
     }
 
     [Fact]
@@ -168,7 +171,8 @@ public class GameSimulationServiceTests
             _hubContextMock.Object,
             _worldConfigMock.Object,
             registrationServiceMock.Object,
-            _serviceScopeFactoryMock.Object);
+            _serviceScopeFactoryMock.Object,
+            _worldPersistenceServiceMock.Object);
 
         // Act & Assert
         var exception = await Record.ExceptionAsync(async () =>
@@ -274,7 +278,8 @@ public class GameSimulationServiceTests
             _hubContextMock.Object,
             _worldConfigMock.Object,
             _worldRegistrationServiceMock.Object,
-            _serviceScopeFactoryMock.Object);
+            _serviceScopeFactoryMock.Object,
+            _worldPersistenceServiceMock.Object);
 
         // Act - Start the service but stop it immediately to prevent ongoing execution
         await service.StartAsync(CancellationToken.None);
@@ -353,7 +358,8 @@ public class GameSimulationServiceTests
             _hubContextMock.Object,
             Options.Create(currentConfig),
             _worldRegistrationServiceMock.Object,
-            _serviceScopeFactoryMock.Object);
+            _serviceScopeFactoryMock.Object,
+            _worldPersistenceServiceMock.Object);
 
         // Act
         await service.StartAsync(CancellationToken.None);
@@ -404,7 +410,8 @@ public class GameSimulationServiceTests
             _hubContextMock.Object,
             Options.Create(currentConfig),
             _worldRegistrationServiceMock.Object,
-            _serviceScopeFactoryMock.Object);
+            _serviceScopeFactoryMock.Object,
+            _worldPersistenceServiceMock.Object);
 
         // Act
         await service.StartAsync(CancellationToken.None);

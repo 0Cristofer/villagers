@@ -15,19 +15,23 @@ public class GameSimulationService : BackgroundService, IGameSimulationService
     private World _world;
     private readonly IWorldRegistrationService _worldRegistrationService;
     private readonly IServiceScopeFactory _serviceScopeFactory;
+    private readonly IWorldPersistenceBackgroundService _worldPersistenceService;
     private readonly WorldConfiguration _worldConfig;
+    private DateTime _lastSaveTimestamp = DateTime.MinValue;
 
     public GameSimulationService(
         ILogger<GameSimulationService> logger, 
         IHubContext<GameHub, IGameClient> hubContext,
         IOptions<WorldConfiguration> worldConfig,
         IWorldRegistrationService worldRegistrationService,
-        IServiceScopeFactory serviceScopeFactory)
+        IServiceScopeFactory serviceScopeFactory,
+        IWorldPersistenceBackgroundService worldPersistenceService)
     {
         _logger = logger;
         _hubContext = hubContext;
         _worldRegistrationService = worldRegistrationService;
         _serviceScopeFactory = serviceScopeFactory;
+        _worldPersistenceService = worldPersistenceService;
         _worldConfig = worldConfig.Value;
         
         // World will be initialized in StartAsync
@@ -113,6 +117,17 @@ public class GameSimulationService : BackgroundService, IGameSimulationService
         }
         finally
         {
+            // Save world state immediately before shutting down to ensure no data loss
+            try
+            {
+                _logger.LogInformation("Saving world state before shutdown...");
+                await _worldPersistenceService.SaveWorldImmediatelyAsync(_world);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to save world state during shutdown");
+            }
+
             // Unregister when stopping
             await _worldRegistrationService.UnregisterWorldAsync(_world);
             _logger.LogInformation("Game Simulation Service stopped");
@@ -168,6 +183,19 @@ public class GameSimulationService : BackgroundService, IGameSimulationService
         
         // Broadcast world state to all connected clients
         await _hubContext.Clients.All.WorldUpdate(world.ToDto());
+        
+        // Check if we should save the world state
+        if (ShouldSaveWorld())
+        {
+            _worldPersistenceService.EnqueueWorldForSave(_world);
+            _lastSaveTimestamp = DateTime.UtcNow;
+        }
+    }
+    
+    private bool ShouldSaveWorld()
+    {
+        var timeSinceLastSave = DateTime.UtcNow - _lastSaveTimestamp;
+        return timeSinceLastSave >= _worldConfig.SaveInterval;
     }
 
 }
