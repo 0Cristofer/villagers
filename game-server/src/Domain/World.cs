@@ -145,4 +145,9 @@ public class World
             return TickNumber + 1;
         }
     }
+
+    public void UpdateConfiguration(WorldConfig newConfig)
+    {
+        Config = newConfig ?? throw new ArgumentNullException(nameof(newConfig));
+    }
 }

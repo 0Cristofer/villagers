@@ -27,7 +27,7 @@ public class WorldRepository : IWorldRepository
             return null;
         }
         
-        return worldEntity.ToDomain(_worldConfig);
+        return worldEntity.ToDomain();
     }
 
     public async Task SaveWorldStateAsync(World world)

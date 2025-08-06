@@ -14,13 +14,15 @@ public static class WorldExtensions
         {
             Id = world.Id,
             TickNumber = world.GetCurrentTickNumber(),
+            Config = world.Config.ToEntity(),
             LastUpdated = DateTime.UtcNow
         };
     }
 
-    public static World ToDomain(this WorldEntity entity, WorldConfiguration config)
+    public static World ToDomain(this WorldEntity entity)
     {
-        var domainConfig = config.ToDomain();
+        // Use the persisted configuration to ensure simulation consistency
+        var domainConfig = entity.Config.ToDomain();
         var commandQueue = new CommandQueue();
         return new World(entity.Id, domainConfig, commandQueue, (int)entity.TickNumber);
     }

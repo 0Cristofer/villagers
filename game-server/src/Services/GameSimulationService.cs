@@ -14,7 +14,7 @@ public class GameSimulationService : BackgroundService, IGameSimulationService
     private readonly IHubContext<GameHub, IGameClient> _hubContext;
     private World _world;
     private readonly IWorldRegistrationService _worldRegistrationService;
-    private readonly IGamePersistenceService _gamePersistenceService;
+    private readonly IServiceScopeFactory _serviceScopeFactory;
     private readonly WorldConfiguration _worldConfig;
 
     public GameSimulationService(
@@ -22,12 +22,12 @@ public class GameSimulationService : BackgroundService, IGameSimulationService
         IHubContext<GameHub, IGameClient> hubContext,
         IOptions<WorldConfiguration> worldConfig,
         IWorldRegistrationService worldRegistrationService,
-        IGamePersistenceService gamePersistenceService)
+        IServiceScopeFactory serviceScopeFactory)
     {
         _logger = logger;
         _hubContext = hubContext;
         _worldRegistrationService = worldRegistrationService;
-        _gamePersistenceService = gamePersistenceService;
+        _serviceScopeFactory = serviceScopeFactory;
         _worldConfig = worldConfig.Value;
         
         // World will be initialized in StartAsync
@@ -42,16 +42,24 @@ public class GameSimulationService : BackgroundService, IGameSimulationService
 
     private async Task InitializeWorldAsync(CancellationToken cancellationToken)
     {
+        using var scope = _serviceScopeFactory.CreateScope();
+        var gamePersistenceService = scope.ServiceProvider.GetRequiredService<IGamePersistenceService>();
+        
         // Try to load persisted world first
-        var persistedWorld = await _gamePersistenceService.GetWorldAsync();
+        var persistedWorld = await gamePersistenceService.GetWorldAsync();
         
         if (persistedWorld != null)
         {
             _logger.LogInformation("Found persisted world at tick {TickNumber}, loading...", persistedWorld.GetCurrentTickNumber());
             _world = persistedWorld;
             
-            // Replay persisted commands
-            await ReplayPersistedCommandsAsync(cancellationToken);
+            // Replay persisted commands using the persisted configuration
+            await ReplayPersistedCommandsAsync(gamePersistenceService, cancellationToken);
+            
+            // After command replay is complete, update to current configuration
+            var currentConfig = _worldConfig.ToDomain();
+            _world.UpdateConfiguration(currentConfig);
+            _logger.LogInformation("Updated world configuration to current settings after command replay");
         }
         else
         {
@@ -62,9 +70,9 @@ public class GameSimulationService : BackgroundService, IGameSimulationService
         }
     }
 
-    private async Task ReplayPersistedCommandsAsync(CancellationToken cancellationToken)
+    private async Task ReplayPersistedCommandsAsync(IGamePersistenceService gamePersistenceService, CancellationToken cancellationToken)
     {
-        var commandGroups = await _gamePersistenceService.GetPersistedCommandsAsync();
+        var commandGroups = await gamePersistenceService.GetPersistedCommandsAsync();
         
         if (commandGroups.Count == 0)
         {

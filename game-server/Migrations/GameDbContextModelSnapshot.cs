@@ -75,6 +75,32 @@ namespace Villagers.GameServer.Migrations
 
                     b.ToTable("WorldStates");
                 });
+
+            modelBuilder.Entity("Villagers.GameServer.Entities.WorldEntity", b =>
+                {
+                    b.OwnsOne("Villagers.GameServer.Entities.WorldConfigEntity", "Config", b1 =>
+                        {
+                            b1.Property<Guid>("WorldEntityId")
+                                .HasColumnType("uuid");
+
+                            b1.Property<long>("TickIntervalMs")
+                                .HasColumnType("bigint");
+
+                            b1.Property<string>("WorldName")
+                                .IsRequired()
+                                .HasColumnType("text");
+
+                            b1.HasKey("WorldEntityId");
+
+                            b1.ToTable("WorldStates");
+
+                            b1.WithOwner()
+                                .HasForeignKey("WorldEntityId");
+                        });
+
+                    b.Navigation("Config")
+                        .IsRequired();
+                });
 #pragma warning restore 612, 618
         }
     }

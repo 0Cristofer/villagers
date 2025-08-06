@@ -1,5 +1,6 @@
 using FluentAssertions;
 using Microsoft.AspNetCore.SignalR;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Moq;
@@ -21,6 +22,9 @@ public class GameSimulationServiceTests
     private readonly Mock<IOptions<WorldConfiguration>> _worldConfigMock;
     private readonly Mock<IWorldRegistrationService> _worldRegistrationServiceMock;
     private readonly Mock<IGamePersistenceService> _gamePersistenceServiceMock;
+    private readonly Mock<IServiceScopeFactory> _serviceScopeFactoryMock;
+    private readonly Mock<IServiceScope> _serviceScopeMock;
+    private readonly Mock<IServiceProvider> _serviceProviderMock;
     private readonly GameSimulationService _service;
 
     public GameSimulationServiceTests()
@@ -30,6 +34,9 @@ public class GameSimulationServiceTests
         _worldConfigMock = new Mock<IOptions<WorldConfiguration>>();
         _worldRegistrationServiceMock = new Mock<IWorldRegistrationService>();
         _gamePersistenceServiceMock = new Mock<IGamePersistenceService>();
+        _serviceScopeFactoryMock = new Mock<IServiceScopeFactory>();
+        _serviceScopeMock = new Mock<IServiceScope>();
+        _serviceProviderMock = new Mock<IServiceProvider>();
         
         var clientsMock = new Mock<IHubClients<IGameClient>>();
         var clientProxyMock = new Mock<IGameClient>();
@@ -49,12 +56,18 @@ public class GameSimulationServiceTests
         _gamePersistenceServiceMock.Setup(x => x.GetWorldAsync()).ReturnsAsync((World?)null);
         _gamePersistenceServiceMock.Setup(x => x.GetPersistedCommandsAsync()).ReturnsAsync(new List<List<ICommand>>());
         
+        // Setup service scope factory chain
+        _serviceProviderMock.Setup(x => x.GetService(typeof(IGamePersistenceService)))
+            .Returns(_gamePersistenceServiceMock.Object);
+        _serviceScopeMock.Setup(x => x.ServiceProvider).Returns(_serviceProviderMock.Object);
+        _serviceScopeFactoryMock.Setup(x => x.CreateScope()).Returns(_serviceScopeMock.Object);
+        
         _service = new GameSimulationService(
             _loggerMock.Object, 
             _hubContextMock.Object, 
             _worldConfigMock.Object,
             _worldRegistrationServiceMock.Object,
-            _gamePersistenceServiceMock.Object);
+            _serviceScopeFactoryMock.Object);
     }
 
     [Fact]
@@ -154,7 +167,7 @@ public class GameSimulationServiceTests
             _hubContextMock.Object,
             _worldConfigMock.Object,
             registrationServiceMock.Object,
-            _gamePersistenceServiceMock.Object);
+            _serviceScopeFactoryMock.Object);
 
         // Act & Assert
         var exception = await Record.ExceptionAsync(async () =>
@@ -260,7 +273,7 @@ public class GameSimulationServiceTests
             _hubContextMock.Object,
             _worldConfigMock.Object,
             _worldRegistrationServiceMock.Object,
-            _gamePersistenceServiceMock.Object);
+            _serviceScopeFactoryMock.Object);
 
         // Act - Start the service but stop it immediately to prevent ongoing execution
         await service.StartAsync(CancellationToken.None);
@@ -298,6 +311,128 @@ public class GameSimulationServiceTests
                 LogLevel.Information,
                 It.IsAny<EventId>(),
                 It.Is<It.IsAnyType>((o, t) => o.ToString()!.Contains("Replaying 2 tick groups")),
+                It.IsAny<Exception>(),
+                It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task StartAsync_WithPersistedWorld_ShouldUsePersistedConfigDuringReplayThenSwitchToCurrent()
+    {
+        // Arrange
+        var persistedWorldId = Guid.NewGuid();
+        var persistedTickNumber = 10;
+        
+        // Persisted world has different config
+        var persistedConfig = new WorldConfig("Persisted World", TimeSpan.FromMilliseconds(500));
+        var persistedWorld = new World(persistedWorldId, persistedConfig, new CommandQueue(), persistedTickNumber);
+        
+        // Current config is different
+        var currentConfig = new WorldConfiguration
+        {
+            WorldName = "Current World",
+            TickInterval = TimeSpan.FromMilliseconds(2000)
+        };
+        
+        var persistedCommands = new List<List<ICommand>>
+        {
+            new List<ICommand>
+            {
+                new TestCommand(Guid.NewGuid(), "Replayed command", 11)
+            }
+        };
+        
+        _gamePersistenceServiceMock.Setup(x => x.GetWorldAsync())
+            .ReturnsAsync(persistedWorld);
+        _gamePersistenceServiceMock.Setup(x => x.GetPersistedCommandsAsync())
+            .ReturnsAsync(persistedCommands);
+        
+        var service = new GameSimulationService(
+            _loggerMock.Object,
+            _hubContextMock.Object,
+            Options.Create(currentConfig),
+            _worldRegistrationServiceMock.Object,
+            _serviceScopeFactoryMock.Object);
+
+        // Act
+        await service.StartAsync(CancellationToken.None);
+        await service.StopAsync(CancellationToken.None);
+
+        // Assert
+        service.GetWorldId().Should().Be(persistedWorldId);
+        service.GetCurrentTickNumber().Should().Be(12); // 10 + 1 (replay) + 1 (ExecuteAsync)
+        
+        // Verify configuration was updated after replay
+        _loggerMock.Verify(
+            x => x.Log(
+                LogLevel.Information,
+                It.IsAny<EventId>(),
+                It.Is<It.IsAnyType>((o, t) => o.ToString()!.Contains("Updated world configuration to current settings after command replay")),
+                It.IsAny<Exception>(),
+                It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
+            Times.Once);
+    }
+
+    [Fact] 
+    public async Task StartAsync_WithConfigMismatch_ShouldEnsureSimulationConsistency()
+    {
+        // Arrange - Test that commands are replayed with original config for consistency
+        var persistedConfig = new WorldConfig("Original", TimeSpan.FromMilliseconds(100));
+        var persistedWorld = new World(Guid.NewGuid(), persistedConfig, new CommandQueue(), 5);
+        
+        // Current config has different timing that could affect simulation
+        var currentConfig = new WorldConfiguration
+        {
+            WorldName = "Updated", 
+            TickInterval = TimeSpan.FromSeconds(5) // Much different timing
+        };
+        
+        var persistedCommands = new List<List<ICommand>>
+        {
+            new List<ICommand> { new TestCommand(Guid.NewGuid(), "cmd1", 6) },
+            new List<ICommand> { new TestCommand(Guid.NewGuid(), "cmd2", 7) }
+        };
+        
+        _gamePersistenceServiceMock.Setup(x => x.GetWorldAsync())
+            .ReturnsAsync(persistedWorld);
+        _gamePersistenceServiceMock.Setup(x => x.GetPersistedCommandsAsync())
+            .ReturnsAsync(persistedCommands);
+        
+        var service = new GameSimulationService(
+            _loggerMock.Object,
+            _hubContextMock.Object,
+            Options.Create(currentConfig),
+            _worldRegistrationServiceMock.Object,
+            _serviceScopeFactoryMock.Object);
+
+        // Act
+        await service.StartAsync(CancellationToken.None);
+        await service.StopAsync(CancellationToken.None);
+
+        // Assert - Verify both replay and config update occurred
+        _loggerMock.Verify(
+            x => x.Log(
+                LogLevel.Information,
+                It.IsAny<EventId>(),
+                It.Is<It.IsAnyType>((o, t) => o.ToString()!.Contains("Replaying 2 tick groups")),
+                It.IsAny<Exception>(),
+                It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
+            Times.Once);
+            
+        _loggerMock.Verify(
+            x => x.Log(
+                LogLevel.Information,
+                It.IsAny<EventId>(),
+                It.Is<It.IsAnyType>((o, t) => o.ToString()!.Contains("Command replay complete. World is now at tick 7")),
+                It.IsAny<Exception>(),
+                It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
+            Times.Once);
+            
+        _loggerMock.Verify(
+            x => x.Log(
+                LogLevel.Information,
+                It.IsAny<EventId>(),
+                It.Is<It.IsAnyType>((o, t) => o.ToString()!.Contains("Updated world configuration to current settings after command replay")),
                 It.IsAny<Exception>(),
                 It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
             Times.Once);
