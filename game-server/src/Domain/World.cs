@@ -1,4 +1,5 @@
 using Villagers.GameServer.Domain.Commands;
+using Villagers.GameServer.Domain.Commands.Requests;
 
 namespace Villagers.GameServer.Domain;
 
@@ -125,9 +126,42 @@ public class World
         _isRunning = false;
     }
 
-    public void EnqueueCommand(ICommand command)
+    public ICommand EnqueueCommand(ICommandRequest request)
     {
-        _commandQueue.EnqueueCommand(command);
+        lock (_tickLock)
+        {
+            // Get next tick and create command atomically
+            var nextTick = TickNumber + 1;
+            
+            ICommand command = request switch
+            {
+                TestCommandRequest testRequest => new TestCommand(testRequest.PlayerId, testRequest.Message, nextTick),
+                RegisterPlayerCommandRequest registerRequest => new RegisterPlayerCommand(registerRequest.PlayerId, registerRequest.StartingDirection, nextTick),
+                _ => throw new NotSupportedException($"Command request type {request.GetType().Name} is not supported")
+            };
+            
+            // Enqueue the command immediately while still holding the lock
+            _commandQueue.EnqueueCommand(command);
+            
+            return command;
+        }
+    }
+
+    // Keep this method for command replay during world restoration
+    public void EnqueueExistingCommand(ICommand command)
+    {
+        lock (_tickLock)
+        {
+            var expectedTick = TickNumber + 1;
+            if (command.TickNumber != expectedTick)
+            {
+                throw new InvalidOperationException(
+                    $"Command tick number {command.TickNumber} does not match expected tick {expectedTick}. " +
+                    $"Commands must be replayed in correct tick order.");
+            }
+            
+            _commandQueue.EnqueueCommand(command);
+        }
     }
 
     public int GetCurrentTickNumber()

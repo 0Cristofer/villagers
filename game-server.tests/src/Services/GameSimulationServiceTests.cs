@@ -7,6 +7,7 @@ using Moq;
 using Villagers.GameServer.Configuration;
 using Villagers.GameServer.Domain;
 using Villagers.GameServer.Domain.Commands;
+using Villagers.GameServer.Domain.Commands.Requests;
 using Villagers.GameServer.Domain.Enums;
 using Villagers.GameServer.Extensions;
 using Villagers.GameServer.Interfaces;
@@ -86,14 +87,14 @@ public class GameSimulationServiceTests
     }
 
     [Fact]
-    public async Task EnqueueCommand_ShouldAcceptCommand()
+    public async Task ProcessCommandRequest_ShouldAcceptRequest()
     {
         // Arrange
         await _service.StartAsync(CancellationToken.None);
-        var command = new TestCommand(Guid.NewGuid(), "test message", 0);
+        var request = new TestCommandRequest(Guid.NewGuid(), "test message");
 
         // Act
-        var exception = Record.Exception(() => _service.EnqueueCommand(command));
+        var exception = await Record.ExceptionAsync(async () => await _service.ProcessCommandRequest(request));
 
         // Assert
         exception.Should().BeNull();
@@ -130,23 +131,23 @@ public class GameSimulationServiceTests
     }
 
     [Fact]
-    public async Task EnqueueCommand_WithMultipleCommands_ShouldNotThrow()
+    public async Task ProcessCommandRequest_WithMultipleRequests_ShouldNotThrow()
     {
         // Arrange
         await _service.StartAsync(CancellationToken.None);
-        var commands = new[]
+        var requests = new[]
         {
-            new TestCommand(Guid.NewGuid(), "message1", 0),
-            new TestCommand(Guid.NewGuid(), "message2", 1),
-            new TestCommand(Guid.NewGuid(), "message3", 2)
+            new TestCommandRequest(Guid.NewGuid(), "message1"),
+            new TestCommandRequest(Guid.NewGuid(), "message2"),
+            new TestCommandRequest(Guid.NewGuid(), "message3")
         };
 
         // Act
-        var exception = Record.Exception(() =>
+        var exception = await Record.ExceptionAsync(async () =>
         {
-            foreach (var command in commands)
+            foreach (var request in requests)
             {
-                _service.EnqueueCommand(command);
+                await _service.ProcessCommandRequest(request);
             }
         });
 
@@ -218,14 +219,14 @@ public class GameSimulationServiceTests
 
 
     [Fact]
-    public async Task EnqueueCommand_WithRegisterPlayerCommand_ShouldAcceptCommand()
+    public async Task ProcessCommandRequest_WithRegisterPlayerRequest_ShouldAcceptRequest()
     {
         // Arrange
         await _service.StartAsync(CancellationToken.None);
-        var command = new RegisterPlayerCommand(Guid.NewGuid(), StartingDirection.Random, 0);
+        var request = new RegisterPlayerCommandRequest(Guid.NewGuid(), StartingDirection.Random);
 
         // Act
-        var exception = Record.Exception(() => _service.EnqueueCommand(command));
+        var exception = await Record.ExceptionAsync(async () => await _service.ProcessCommandRequest(request));
 
         // Assert
         exception.Should().BeNull();

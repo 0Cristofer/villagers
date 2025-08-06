@@ -35,4 +35,9 @@ public class GamePersistenceService : IGamePersistenceService
         // Use repository method that performs efficient database-level grouping and ordering
         return await _commandRepository.GetCommandsGroupedByTickAsync();
     }
+
+    public async Task SaveCommandAsync(ICommand command)
+    {
+        await _commandRepository.SaveCommandAsync(command);
+    }
 }

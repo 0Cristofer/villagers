@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
-using Villagers.GameServer.Domain.Commands;
+using Villagers.GameServer.Domain.Commands.Requests;
 using Villagers.GameServer.Domain.Enums;
 using Villagers.GameServer.Interfaces;
 using Villagers.GameServer.Services;
@@ -33,13 +33,12 @@ public class GameHub : Hub<IGameClient>
     }
 
     [Authorize]
-    public void SendTestCommand(Guid playerId, string message)
+    public async Task SendTestCommand(Guid playerId, string message)
     {
         _logger.LogInformation("Received test command from player {PlayerId} via SignalR: {Message}", playerId, message);
         
-        var nextTick = _gameService.GetNextTickNumber();
-        var command = new TestCommand(playerId, message, nextTick);
-        _gameService.EnqueueCommand(command);
+        var request = new TestCommandRequest(playerId, message);
+        await _gameService.ProcessCommandRequest(request);
     }
 
     [Authorize]
@@ -53,10 +52,9 @@ public class GameHub : Hub<IGameClient>
         // Update player's RegisteredWorldIds in database via API
         await _playerRegistrationService.RegisterPlayerForWorldAsync(playerId, worldId);
         
-        // Enqueue command for game simulation processing
-        var nextTick = _gameService.GetNextTickNumber();
-        var command = new RegisterPlayerCommand(playerId, startingDirection, nextTick);
-        _gameService.EnqueueCommand(command);
+        // Process command request for game simulation
+        var request = new RegisterPlayerCommandRequest(playerId, startingDirection);
+        await _gameService.ProcessCommandRequest(request);
         
         _logger.LogInformation("Successfully processed registration for player {PlayerId} and world {WorldId} with direction {StartingDirection}", playerId, worldId, startingDirection);
     }

@@ -2,7 +2,7 @@ using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Options;
 using Villagers.GameServer.Configuration;
 using Villagers.GameServer.Domain;
-using Villagers.GameServer.Domain.Commands;
+using Villagers.GameServer.Domain.Commands.Requests;
 using Villagers.GameServer.Extensions;
 using Villagers.GameServer.Interfaces;
 
@@ -83,10 +83,10 @@ public class GameSimulationService : BackgroundService, IGameSimulationService
         
         foreach (var tickCommands in commandGroups)
         {
-            // Enqueue all commands for this tick
+            // Enqueue all commands for this tick (these already have correct tick numbers)
             foreach (var command in tickCommands)
             {
-                _world.EnqueueCommand(command);
+                _world.EnqueueExistingCommand(command);
             }
             
             // Run one tick to process this group of commands (skip delay for fast replay)
@@ -119,9 +119,32 @@ public class GameSimulationService : BackgroundService, IGameSimulationService
         }
     }
 
-    public void EnqueueCommand(ICommand command)
+    public async Task ProcessCommandRequest(ICommandRequest request)
     {
-        _world.EnqueueCommand(command);
+        // TODO: Performance optimization needed for high-throughput scenarios (5k+ players, 10k+ commands/sec)
+        // Current approach: Direct database persistence per command
+        // Potential issues:
+        // - Database connection pool exhaustion under high load
+        // - Individual INSERT operations create I/O bottleneck
+        // - Network latency to database amplified per command
+        // 
+        // Future optimizations to consider:
+        // - Write-Ahead Log (WAL) with background batch persistence
+        // - Redis Streams for fast append + guaranteed durability
+        // - In-memory buffer with periodic batch flushes (every 100ms or 50 commands)
+        // - Consider async fire-and-forget with eventual consistency if game design allows
+        
+        // Convert request to command with atomic tick assignment and enqueue
+        var command = _world.EnqueueCommand(request);
+        
+        // Persist the command - if this fails, the command is already enqueued but will be lost on crash
+        // This is acceptable as the command hasn't been processed yet
+        using var scope = _serviceScopeFactory.CreateScope();
+        var gamePersistenceService = scope.ServiceProvider.GetRequiredService<IGamePersistenceService>();
+        
+        await gamePersistenceService.SaveCommandAsync(command);
+        _logger.LogDebug("Persisted command {CommandType} from player {PlayerId} for tick {TickNumber}", 
+            command.GetType().Name, command.PlayerId, command.TickNumber);
     }
 
     public Guid GetWorldId()
