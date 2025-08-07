@@ -115,23 +115,42 @@ public class GameSimulationService : BackgroundService, IGameSimulationService
             // Start the world game loop
             await _world.Run(stoppingToken);
         }
-        finally
+        catch (Exception ex)
         {
-            // Save world state immediately before shutting down to ensure no data loss
-            try
-            {
-                _logger.LogInformation("Saving world state before shutdown...");
-                await _worldPersistenceService.SaveWorldImmediatelyAsync(_world);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Failed to save world state during shutdown");
-            }
-
-            // Unregister when stopping
-            await _worldRegistrationService.UnregisterWorldAsync(_world);
-            _logger.LogInformation("Game Simulation Service stopped");
+            _logger.LogCritical(ex, "Fatal error in game simulation - service will stop gracefully");
+            // Don't rethrow - let the service stop gracefully via StopAsync
         }
+    }
+
+    public override async Task StopAsync(CancellationToken cancellationToken)
+    {
+        _logger.LogInformation("Game Simulation Service stopping...");
+        
+        // Unregister world first to prevent new players from joining during shutdown
+        try
+        {
+            await _worldRegistrationService.UnregisterWorldAsync(_world);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to unregister world during shutdown");
+        }
+
+        // Save world state immediately before shutting down to ensure no data loss
+        try
+        {
+            _logger.LogInformation("Saving world state before shutdown...");
+            await _worldPersistenceService.SaveWorldImmediatelyAsync(_world);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to save world state during shutdown");
+        }
+
+        // Call base StopAsync to handle the rest of the shutdown process
+        await base.StopAsync(cancellationToken);
+        
+        _logger.LogInformation("Game Simulation Service stopped");
     }
 
     public async Task ProcessCommandRequest(ICommandRequest request)
