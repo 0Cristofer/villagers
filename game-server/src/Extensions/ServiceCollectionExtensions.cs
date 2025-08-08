@@ -23,6 +23,7 @@ public static class ServiceCollectionExtensions
     {
         services.AddScoped<IWorldRepository, WorldRepository>();
         services.AddScoped<ICommandRepository, CommandRepository>();
+        services.AddScoped<IRegistrationIntentRepository, RegistrationIntentRepository>();
         
         return services;
     }
@@ -92,6 +93,9 @@ public static class ServiceCollectionExtensions
         // Add player registration service
         services.AddSingleton<IPlayerRegistrationService, PlayerRegistrationService>();
         
+        // Add player registration intent service
+        services.AddScoped<IPlayerRegistrationIntentService, PlayerRegistrationIntentService>();
+        
         // Add game persistence service
         services.AddScoped<IGamePersistenceService, GamePersistenceService>();
         
@@ -99,6 +103,11 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IWorldPersistenceBackgroundService, WorldPersistenceBackgroundService>();
         services.AddHostedService(provider => 
             provider.GetRequiredService<IWorldPersistenceBackgroundService>());
+        
+        // Add background registration intent service
+        services.AddSingleton<IRegistrationIntentBackgroundService, RegistrationIntentBackgroundService>();
+        services.AddHostedService(provider => 
+            provider.GetRequiredService<IRegistrationIntentBackgroundService>());
         
         services.AddSignalR();
         services.AddSingleton<IGameSimulationService, GameSimulationService>();

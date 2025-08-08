@@ -57,6 +57,46 @@ namespace Villagers.GameServer.Migrations
                     b.ToTable("Commands");
                 });
 
+            modelBuilder.Entity("Villagers.GameServer.Entities.RegistrationIntentEntity", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasDefaultValueSql("NOW()");
+
+                    b.Property<bool>("IsCompleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("LastError")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("LastRetryAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasDefaultValueSql("NOW()");
+
+                    b.Property<Guid>("PlayerId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("RetryCount")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("StartingDirection")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PlayerId");
+
+                    b.HasIndex("IsCompleted", "CreatedAt");
+
+                    b.ToTable("RegistrationIntents");
+                });
+
             modelBuilder.Entity("Villagers.GameServer.Entities.WorldEntity", b =>
                 {
                     b.Property<Guid>("Id")

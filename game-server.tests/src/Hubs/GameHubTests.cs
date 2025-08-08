@@ -1,4 +1,5 @@
 using FluentAssertions;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Moq;
 using Villagers.GameServer.Domain.Commands;
@@ -13,19 +14,19 @@ public class GameHubTests
 {
     private readonly Mock<ILogger<GameHub>> _loggerMock;
     private readonly Mock<IGameSimulationService> _gameServiceMock;
-    private readonly Mock<IPlayerRegistrationService> _playerRegistrationServiceMock;
+    private readonly Mock<IServiceScopeFactory> _serviceScopeFactoryMock;
     private readonly GameHub _hub;
 
     public GameHubTests()
     {
         _loggerMock = new Mock<ILogger<GameHub>>();
         _gameServiceMock = new Mock<IGameSimulationService>();
-        _playerRegistrationServiceMock = new Mock<IPlayerRegistrationService>();
+        _serviceScopeFactoryMock = new Mock<IServiceScopeFactory>();
 
         _hub = new GameHub(
             _loggerMock.Object,
             _gameServiceMock.Object,
-            _playerRegistrationServiceMock.Object);
+            _serviceScopeFactoryMock.Object);
     }
 
     [Fact]

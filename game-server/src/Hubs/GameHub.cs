@@ -11,13 +11,13 @@ public class GameHub : Hub<IGameClient>
 {
     private readonly ILogger<GameHub> _logger;
     private readonly IGameSimulationService _gameService;
-    private readonly IPlayerRegistrationService _playerRegistrationService;
+    private readonly IServiceScopeFactory _serviceScopeFactory;
 
-    public GameHub(ILogger<GameHub> logger, IGameSimulationService gameService, IPlayerRegistrationService playerRegistrationService)
+    public GameHub(ILogger<GameHub> logger, IGameSimulationService gameService, IServiceScopeFactory serviceScopeFactory)
     {
         _logger = logger;
         _gameService = gameService;
-        _playerRegistrationService = playerRegistrationService;
+        _serviceScopeFactory = serviceScopeFactory;
     }
 
     public override async Task OnConnectedAsync()
@@ -46,16 +46,50 @@ public class GameHub : Hub<IGameClient>
     {
         _logger.LogInformation("Player {PlayerId} requesting registration for this world with starting direction {StartingDirection}", playerId, startingDirection);
         
-        // Get the world ID from the game service
-        var worldId = _gameService.GetWorldId();
+        using var scope = _serviceScopeFactory.CreateScope();
+        var intentService = scope.ServiceProvider.GetRequiredService<IPlayerRegistrationIntentService>();
         
-        // Update player's RegisteredWorldIds in database via API
-        await _playerRegistrationService.RegisterPlayerForWorldAsync(playerId, worldId);
+        // Check if there's already a pending intent for this player
+        var existingIntent = await intentService.GetPendingIntentAsync(playerId);
+        if (existingIntent != null)
+        {
+            _logger.LogInformation("Player {PlayerId} has existing registration intent {IntentId}, waiting for completion", 
+                playerId, existingIntent.Id);
+            
+            // Try to process the existing intent
+            try
+            {
+                await intentService.ProcessRegistrationAsync(existingIntent);
+                _logger.LogInformation("Completed existing registration intent {IntentId} for player {PlayerId}", 
+                    existingIntent.Id, playerId);
+                return;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to complete existing intent {IntentId} for player {PlayerId}, will retry in background", 
+                    existingIntent.Id, playerId);
+                // Return success anyway - background service will retry
+                return;
+            }
+        }
+
+        // Create new registration intent and try to process it immediately
+        var intent = await intentService.CreateRegistrationIntentAsync(playerId, startingDirection);
         
-        // Process command request for game simulation
-        var request = new RegisterPlayerCommandRequest(playerId, startingDirection);
-        await _gameService.ProcessCommandRequest(request);
+        try
+        {
+            await intentService.ProcessRegistrationAsync(intent);
+            _logger.LogInformation("Successfully completed registration for player {PlayerId} via intent {IntentId}", 
+                playerId, intent.Id);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to complete registration intent {IntentId} for player {PlayerId}, will retry in background", 
+                intent.Id, playerId);
+            // Return success anyway - the player is registered in the game simulation
+            // Background service will retry the API registration
+        }
         
-        _logger.LogInformation("Successfully processed registration for player {PlayerId} and world {WorldId} with direction {StartingDirection}", playerId, worldId, startingDirection);
+        // Always return success to the client - if API registration failed, background service will handle it
     }
 }
