@@ -2,6 +2,7 @@ using FluentAssertions;
 using Microsoft.Extensions.Logging;
 using Moq;
 using Villagers.GameServer.Domain.Commands;
+using Villagers.GameServer.Domain.Commands.Requests;
 using Villagers.GameServer.Domain.Enums;
 using Villagers.GameServer.Services;
 using Xunit;
@@ -36,14 +37,15 @@ public class GameHubTests
         var startingDirection = StartingDirection.North;
         
         _gameServiceMock.Setup(x => x.GetWorldId()).Returns(worldId);
+        _gameServiceMock.Setup(x => x.GetNextTickNumber()).Returns(6);
 
         // Act
         await _hub.RegisterForWorld(playerId, startingDirection);
 
         // Assert
         _playerRegistrationServiceMock.Verify(x => x.RegisterPlayerForWorldAsync(playerId, worldId), Times.Once);
-        _gameServiceMock.Verify(x => x.EnqueueCommand(It.Is<RegisterPlayerCommand>(cmd => 
-            cmd.PlayerId == playerId && cmd.StartingDirection == startingDirection)), Times.Once);
+        _gameServiceMock.Verify(x => x.ProcessCommandRequest(It.Is<RegisterPlayerCommandRequest>(req => 
+            req.PlayerId == playerId && req.StartingDirection == startingDirection)), Times.Once);
     }
 
     [Fact]
@@ -62,7 +64,7 @@ public class GameHubTests
         var exception = await Record.ExceptionAsync(() => _hub.RegisterForWorld(playerId, startingDirection));
 
         exception.Should().BeOfType<InvalidOperationException>();
-        _gameServiceMock.Verify(x => x.EnqueueCommand(It.IsAny<ICommand>()), Times.Never);
+        _gameServiceMock.Verify(x => x.ProcessCommandRequest(It.IsAny<ICommandRequest>()), Times.Never);
     }
 
     [Fact]
@@ -82,7 +84,7 @@ public class GameHubTests
             .Which.Message.Should().Contain("Player ID cannot be empty");
         
         _playerRegistrationServiceMock.Verify(x => x.RegisterPlayerForWorldAsync(It.IsAny<Guid>(), It.IsAny<Guid>()), Times.Once);
-        _gameServiceMock.Verify(x => x.EnqueueCommand(It.IsAny<ICommand>()), Times.Never);
+        _gameServiceMock.Verify(x => x.ProcessCommandRequest(It.IsAny<ICommandRequest>()), Times.Never);
     }
 
     [Theory]
@@ -102,13 +104,14 @@ public class GameHubTests
         var worldId = Guid.NewGuid();
         
         _gameServiceMock.Setup(x => x.GetWorldId()).Returns(worldId);
+        _gameServiceMock.Setup(x => x.GetNextTickNumber()).Returns(11);
 
         // Act
         await _hub.RegisterForWorld(playerId, direction);
 
         // Assert
         _playerRegistrationServiceMock.Verify(x => x.RegisterPlayerForWorldAsync(playerId, worldId), Times.Once);
-        _gameServiceMock.Verify(x => x.EnqueueCommand(It.Is<RegisterPlayerCommand>(cmd => 
-            cmd.PlayerId == playerId && cmd.StartingDirection == direction)), Times.Once);
+        _gameServiceMock.Verify(x => x.ProcessCommandRequest(It.Is<RegisterPlayerCommandRequest>(req => 
+            req.PlayerId == playerId && req.StartingDirection == direction)), Times.Once);
     }
 }

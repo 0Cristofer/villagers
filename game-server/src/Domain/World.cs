@@ -1,4 +1,5 @@
 using Villagers.GameServer.Domain.Commands;
+using Villagers.GameServer.Domain.Commands.Requests;
 
 namespace Villagers.GameServer.Domain;
 
@@ -8,10 +9,11 @@ public class World
     
     public Guid Id { get; private set; }
     public WorldConfig Config { get; private set; }
-    public int TickNumber { get; private set; }
+    private int TickNumber { get; set; }
     public string Message { get; private set; } // Temporary test
 
     private readonly CommandQueue _commandQueue;
+    private readonly object _tickLock = new object();
     private bool _isRunning;
 
     public event WorldTickHandler? TickOccurredEvent;
@@ -36,22 +38,39 @@ public class World
 
     public async Task Run(CancellationToken cancellationToken = default)
     {
+        await Run(null, false, cancellationToken);
+    }
+
+    public async Task Run(int? tickCount, bool skipDelay = false, CancellationToken cancellationToken = default)
+    {
         _isRunning = true;
+        int ticksExecuted = 0;
         
         while (_isRunning && !cancellationToken.IsCancellationRequested)
         {
+            // Check if we've reached the desired tick count
+            if (tickCount.HasValue && ticksExecuted >= tickCount.Value)
+            {
+                break;
+            }
+            
             Tick();
+            ticksExecuted++;
             
             // Fire tick event to notify subscribers
             await (TickOccurredEvent?.Invoke(this) ?? Task.CompletedTask);
             
-            try
+            // Only delay if skipDelay is false and we're not done with ticks
+            if (!skipDelay && (!tickCount.HasValue || ticksExecuted < tickCount.Value))
             {
-                await Task.Delay(Config.TickInterval, cancellationToken);
-            }
-            catch (OperationCanceledException)
-            {
-                break;
+                try
+                {
+                    await Task.Delay(Config.TickInterval, cancellationToken);
+                }
+                catch (OperationCanceledException)
+                {
+                    break;
+                }
             }
         }
         
@@ -61,7 +80,11 @@ public class World
     private void Tick()
     {
         ProcessCommands();
-        TickNumber++;
+        
+        lock (_tickLock)
+        {
+            TickNumber++;
+        }
     }
 
     private void ProcessCommands()
@@ -101,5 +124,64 @@ public class World
     public void Stop()
     {
         _isRunning = false;
+    }
+
+    public ICommand EnqueueCommand(ICommandRequest request)
+    {
+        lock (_tickLock)
+        {
+            // Get next tick and create command atomically
+            var nextTick = TickNumber + 1;
+            
+            ICommand command = request switch
+            {
+                TestCommandRequest testRequest => new TestCommand(testRequest.PlayerId, testRequest.Message, nextTick),
+                RegisterPlayerCommandRequest registerRequest => new RegisterPlayerCommand(registerRequest.PlayerId, registerRequest.StartingDirection, nextTick),
+                _ => throw new NotSupportedException($"Command request type {request.GetType().Name} is not supported")
+            };
+            
+            // Enqueue the command immediately while still holding the lock
+            _commandQueue.EnqueueCommand(command);
+            
+            return command;
+        }
+    }
+
+    // Keep this method for command replay during world restoration
+    public void EnqueueExistingCommand(ICommand command)
+    {
+        lock (_tickLock)
+        {
+            var expectedTick = TickNumber + 1;
+            if (command.TickNumber != expectedTick)
+            {
+                throw new InvalidOperationException(
+                    $"Command tick number {command.TickNumber} does not match expected tick {expectedTick}. " +
+                    $"Commands must be replayed in correct tick order.");
+            }
+            
+            _commandQueue.EnqueueCommand(command);
+        }
+    }
+
+    public int GetCurrentTickNumber()
+    {
+        lock (_tickLock)
+        {
+            return TickNumber;
+        }
+    }
+
+    public int GetNextTickNumber()
+    {
+        lock (_tickLock)
+        {
+            return TickNumber + 1;
+        }
+    }
+
+    public void UpdateConfiguration(WorldConfig newConfig)
+    {
+        Config = newConfig ?? throw new ArgumentNullException(nameof(newConfig));
     }
 }

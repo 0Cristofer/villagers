@@ -10,4 +10,7 @@ public class WorldConfiguration
     
     [Required]
     public TimeSpan TickInterval { get; set; } = TimeSpan.FromSeconds(5);
+    
+    [Required]
+    public TimeSpan SaveInterval { get; set; } = TimeSpan.FromSeconds(30);
 }

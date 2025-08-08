@@ -388,7 +388,12 @@ function App() {
                     <p>Server: {world.serverEndpoint}</p>
                     <p>Tick Interval: {world.config.tickInterval}</p>
                     <p>Registered: {new Date(world.registeredAt).toLocaleDateString()}</p>
-                    <button className="enter-world-button">Join World</button>
+                    <button 
+                      className="enter-world-button"
+                      onClick={() => enterWorld(world)}
+                    >
+                      Join World
+                    </button>
                   </div>
                 ))}
               </div>

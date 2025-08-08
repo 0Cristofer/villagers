@@ -24,7 +24,7 @@ public class WorldTests
     {
         // Assert
         _world.Config.WorldName.Should().Be("Test World");
-        _world.TickNumber.Should().Be(0);
+        _world.GetCurrentTickNumber().Should().Be(0);
         _world.Message.Should().BeEmpty();
     }
 
@@ -55,13 +55,13 @@ public class WorldTests
     {
         // Arrange
         using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(50));
-        var initialTickNumber = _world.TickNumber;
+        var initialTickNumber = _world.GetCurrentTickNumber();
 
         // Act
         await _world.Run(cts.Token);
 
         // Assert
-        _world.TickNumber.Should().BeGreaterThan(initialTickNumber);
+        _world.GetCurrentTickNumber().Should().BeGreaterThan(initialTickNumber);
     }
 
     [Fact]
@@ -87,7 +87,7 @@ public class WorldTests
     public async Task Run_WithTestCommand_ShouldProcessCommand()
     {
         // Arrange
-        var testCommand = new TestCommand(Guid.NewGuid(), "Hello World");
+        var testCommand = new TestCommand(Guid.NewGuid(), "Hello World", 0);
         _commandQueue.EnqueueCommand(testCommand);
 
         using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(50));
@@ -120,9 +120,9 @@ public class WorldTests
         // Arrange
         var commands = new[]
         {
-            new TestCommand(Guid.NewGuid(), "First"),
-            new TestCommand(Guid.NewGuid(), "Second"),
-            new TestCommand(Guid.NewGuid(), "Third")
+            new TestCommand(Guid.NewGuid(), "First", 0),
+            new TestCommand(Guid.NewGuid(), "Second", 1),
+            new TestCommand(Guid.NewGuid(), "Third", 2)
         };
 
         foreach (var cmd in commands)
@@ -144,7 +144,7 @@ public class WorldTests
     {
         // Arrange
         var playerId = Guid.NewGuid();
-        var registerCommand = new RegisterPlayerCommand(playerId, StartingDirection.North);
+        var registerCommand = new RegisterPlayerCommand(playerId, StartingDirection.North, 0);
         _commandQueue.EnqueueCommand(registerCommand);
 
         using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(50));
@@ -154,7 +154,7 @@ public class WorldTests
 
         // Assert - Command should be processed without throwing
         // (We don't have observable state changes yet, but command processing shouldn't crash)
-        _world.TickNumber.Should().BeGreaterThan(0);
+        _world.GetCurrentTickNumber().Should().BeGreaterThan(0);
     }
 
     [Fact]
@@ -162,8 +162,8 @@ public class WorldTests
     {
         // Arrange
         var playerId = Guid.NewGuid();
-        var testCommand = new TestCommand(playerId, "Test Message");
-        var registerCommand = new RegisterPlayerCommand(playerId, StartingDirection.North);
+        var testCommand = new TestCommand(playerId, "Test Message", 0);
+        var registerCommand = new RegisterPlayerCommand(playerId, StartingDirection.North, 1);
         
         _commandQueue.EnqueueCommand(testCommand);
         _commandQueue.EnqueueCommand(registerCommand);
@@ -175,6 +175,56 @@ public class WorldTests
 
         // Assert
         _world.Message.Should().Be("Test Message");
-        _world.TickNumber.Should().BeGreaterThan(0);
+        _world.GetCurrentTickNumber().Should().BeGreaterThan(0);
+    }
+
+    [Fact]
+    public void UpdateConfiguration_ShouldReplaceWorldConfig()
+    {
+        // Arrange
+        var newConfig = new WorldConfig("Updated World", TimeSpan.FromMilliseconds(500));
+        var originalId = _world.Id;
+        var originalTickNumber = _world.GetCurrentTickNumber();
+
+        // Act
+        _world.UpdateConfiguration(newConfig);
+
+        // Assert
+        _world.Config.Should().Be(newConfig);
+        _world.Config.WorldName.Should().Be("Updated World");
+        _world.Config.TickInterval.Should().Be(TimeSpan.FromMilliseconds(500));
+        
+        // Other properties should remain unchanged
+        _world.Id.Should().Be(originalId);
+        _world.GetCurrentTickNumber().Should().Be(originalTickNumber);
+    }
+
+    [Fact]
+    public void UpdateConfiguration_WithNullConfig_ShouldThrowArgumentNullException()
+    {
+        // Act & Assert
+        var exception = Record.Exception(() => _world.UpdateConfiguration(null!));
+        
+        exception.Should().BeOfType<ArgumentNullException>()
+            .Which.ParamName.Should().Be("newConfig");
+    }
+
+    [Fact]
+    public void UpdateConfiguration_MultipleUpdates_ShouldUseLatestConfig()
+    {
+        // Arrange
+        var config1 = new WorldConfig("World 1", TimeSpan.FromSeconds(1));
+        var config2 = new WorldConfig("World 2", TimeSpan.FromMilliseconds(500));
+        var config3 = new WorldConfig("World 3", TimeSpan.FromMilliseconds(250));
+
+        // Act
+        _world.UpdateConfiguration(config1);
+        _world.UpdateConfiguration(config2);
+        _world.UpdateConfiguration(config3);
+
+        // Assert
+        _world.Config.Should().Be(config3);
+        _world.Config.WorldName.Should().Be("World 3");
+        _world.Config.TickInterval.Should().Be(TimeSpan.FromMilliseconds(250));
     }
 }
