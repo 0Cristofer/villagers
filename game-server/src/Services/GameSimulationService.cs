@@ -148,7 +148,8 @@ public class GameSimulationService : BackgroundService, IGameSimulationService
             try
             {
                 _logger.LogInformation("Saving world state before shutdown...");
-                await _worldPersistenceService.SaveWorldImmediatelyAsync(_world);
+                var worldSnapshot = new WorldSnapshot(_world);
+                await _worldPersistenceService.SaveWorldImmediatelyAsync(worldSnapshot);
             }
             catch (Exception ex)
             {
@@ -221,7 +222,8 @@ public class GameSimulationService : BackgroundService, IGameSimulationService
         // Check if we should save the world state (only if not corrupted)
         if (ShouldSaveWorld() && !_worldIsCorrupted)
         {
-            _worldPersistenceService.EnqueueWorldForSave(_world);
+            var worldSnapshot = new WorldSnapshot(_world);
+            _worldPersistenceService.EnqueueWorldForSave(worldSnapshot);
             _lastSaveTimestamp = DateTime.UtcNow;
         }
     }

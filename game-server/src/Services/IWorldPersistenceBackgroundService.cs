@@ -8,15 +8,15 @@ namespace Villagers.GameServer.Services;
 public interface IWorldPersistenceBackgroundService : IHostedService
 {
     /// <summary>
-    /// Enqueues a world for persistence. The actual save operation will be performed asynchronously.
+    /// Enqueues a world snapshot for persistence. The actual save operation will be performed asynchronously.
     /// </summary>
-    /// <param name="world">The world to persist</param>
-    void EnqueueWorldForSave(World world);
+    /// <param name="worldSnapshot">The world snapshot to persist</param>
+    void EnqueueWorldForSave(WorldSnapshot worldSnapshot);
 
     /// <summary>
-    /// Immediately persists a world synchronously. Use this for shutdown scenarios where you need to ensure the save completes.
+    /// Immediately persists a world snapshot synchronously. Use this for shutdown scenarios where you need to ensure the save completes.
     /// </summary>
-    /// <param name="world">The world to persist</param>
+    /// <param name="worldSnapshot">The world snapshot to persist</param>
     /// <returns>Task that completes when the world has been saved</returns>
-    Task SaveWorldImmediatelyAsync(World world);
+    Task SaveWorldImmediatelyAsync(WorldSnapshot worldSnapshot);
 }

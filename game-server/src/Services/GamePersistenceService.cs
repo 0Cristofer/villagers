@@ -15,15 +15,6 @@ public class GamePersistenceService : IGamePersistenceService
         _commandRepository = commandRepository;
     }
 
-    public async Task SaveWorldAndClearCommandsAsync(World world)
-    {
-        // Save the world state first
-        await _worldRepository.SaveWorldStateAsync(world);
-        
-        // Clear all commands before the current world tick
-        // This maintains only commands since the last world snapshot
-        await _commandRepository.DeleteCommandsBeforeTickAsync(world.GetCurrentTickNumber());
-    }
 
     public async Task<World?> GetWorldAsync()
     {
@@ -34,6 +25,16 @@ public class GamePersistenceService : IGamePersistenceService
     {
         // Use repository method that performs efficient database-level grouping and ordering
         return await _commandRepository.GetCommandsGroupedByTickAsync();
+    }
+
+    public async Task SaveWorldAndClearCommandsAsync(WorldSnapshot worldSnapshot)
+    {
+        // Save the world state directly from snapshot data
+        await _worldRepository.SaveWorldStateAsync(worldSnapshot);
+        
+        // Clear all commands before the current world tick
+        // This maintains only commands since the last world snapshot
+        await _commandRepository.DeleteCommandsBeforeTickAsync(worldSnapshot.TickNumber);
     }
 
     public async Task SaveCommandAsync(ICommand command)

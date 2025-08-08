@@ -7,7 +7,7 @@ public class WorldPersistenceBackgroundService : BackgroundService, IWorldPersis
     private readonly ILogger<WorldPersistenceBackgroundService> _logger;
     private readonly IServiceScopeFactory _serviceScopeFactory;
     private readonly object _lock = new object();
-    private World? _pendingWorld;
+    private WorldSnapshot? _pendingWorldSnapshot;
 
     public WorldPersistenceBackgroundService(
         ILogger<WorldPersistenceBackgroundService> logger,
@@ -17,21 +17,21 @@ public class WorldPersistenceBackgroundService : BackgroundService, IWorldPersis
         _serviceScopeFactory = serviceScopeFactory;
     }
 
-    public void EnqueueWorldForSave(World world)
+    public void EnqueueWorldForSave(WorldSnapshot worldSnapshot)
     {
         lock (_lock)
         {
-            if (_pendingWorld != null)
+            if (_pendingWorldSnapshot != null)
             {
                 _logger.LogWarning("World persistence is taking longer than save interval. " +
                     "Previous save for world {WorldId} at tick {PendingTick} is still in progress. " +
                     "Replacing with new save request at tick {NewTick}",
-                    _pendingWorld.Id, _pendingWorld.GetCurrentTickNumber(), world.GetCurrentTickNumber());
+                    _pendingWorldSnapshot.Id, _pendingWorldSnapshot.TickNumber, worldSnapshot.TickNumber);
             }
 
-            _pendingWorld = world;
+            _pendingWorldSnapshot = worldSnapshot;
             _logger.LogDebug("Enqueued world {WorldId} for persistence at tick {TickNumber}", 
-                world.Id, world.GetCurrentTickNumber());
+                worldSnapshot.Id, worldSnapshot.TickNumber);
         }
     }
 
@@ -43,24 +43,24 @@ public class WorldPersistenceBackgroundService : BackgroundService, IWorldPersis
         {
             while (!stoppingToken.IsCancellationRequested)
             {
-                World? worldToSave;
+                WorldSnapshot? snapshotToSave;
                 
                 lock (_lock)
                 {
-                    worldToSave = _pendingWorld;
+                    snapshotToSave = _pendingWorldSnapshot;
                 }
 
-                if (worldToSave != null)
+                if (snapshotToSave != null)
                 {
-                    await ProcessWorldSave(worldToSave);
+                    await ProcessWorldSave(snapshotToSave);
                     
-                    // Only clear pending world after successful save
+                    // Only clear pending snapshot after successful save
                     lock (_lock)
                     {
-                        // Double-check it's still the same world we just saved
-                        if (_pendingWorld == worldToSave)
+                        // Double-check it's still the same snapshot we just saved
+                        if (_pendingWorldSnapshot == snapshotToSave)
                         {
-                            _pendingWorld = null;
+                            _pendingWorldSnapshot = null;
                         }
                     }
                 }
@@ -84,45 +84,45 @@ public class WorldPersistenceBackgroundService : BackgroundService, IWorldPersis
         }
     }
 
-    public async Task SaveWorldImmediatelyAsync(World world)
+    public async Task SaveWorldImmediatelyAsync(WorldSnapshot worldSnapshot)
     {
         _logger.LogInformation("Immediate world save requested for world {WorldId} at tick {TickNumber}", 
-            world.Id, world.GetCurrentTickNumber());
+            worldSnapshot.Id, worldSnapshot.TickNumber);
 
-        await ProcessWorldSave(world);
+        await ProcessWorldSave(worldSnapshot);
 
         // Clear any pending save for this same world since we just saved it
         lock (_lock)
         {
-            if (_pendingWorld?.Id == world.Id)
+            if (_pendingWorldSnapshot?.Id == worldSnapshot.Id)
             {
-                _pendingWorld = null;
-                _logger.LogDebug("Cleared pending save for world {WorldId} after immediate save", world.Id);
+                _pendingWorldSnapshot = null;
+                _logger.LogDebug("Cleared pending save for world {WorldId} after immediate save", worldSnapshot.Id);
             }
         }
     }
 
-    private async Task ProcessWorldSave(World world)
+    private async Task ProcessWorldSave(WorldSnapshot worldSnapshot)
     {
         try
         {
             _logger.LogDebug("Starting persistence for world {WorldId} at tick {TickNumber}", 
-                world.Id, world.GetCurrentTickNumber());
+                worldSnapshot.Id, worldSnapshot.TickNumber);
 
             using var scope = _serviceScopeFactory.CreateScope();
             var gamePersistenceService = scope.ServiceProvider.GetRequiredService<IGamePersistenceService>();
 
             var stopwatch = System.Diagnostics.Stopwatch.StartNew();
-            await gamePersistenceService.SaveWorldAndClearCommandsAsync(world);
+            await gamePersistenceService.SaveWorldAndClearCommandsAsync(worldSnapshot);
             stopwatch.Stop();
 
             _logger.LogInformation("Successfully persisted world {WorldId} at tick {TickNumber} in {ElapsedMs}ms", 
-                world.Id, world.GetCurrentTickNumber(), stopwatch.ElapsedMilliseconds);
+                worldSnapshot.Id, worldSnapshot.TickNumber, stopwatch.ElapsedMilliseconds);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to persist world {WorldId} at tick {TickNumber}", 
-                world.Id, world.GetCurrentTickNumber());
+                worldSnapshot.Id, worldSnapshot.TickNumber);
             throw; // Re-throw for immediate saves so caller knows it failed
         }
     }
