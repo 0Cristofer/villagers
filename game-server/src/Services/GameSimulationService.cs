@@ -18,6 +18,7 @@ public class GameSimulationService : BackgroundService, IGameSimulationService
     private readonly IWorldPersistenceBackgroundService _worldPersistenceService;
     private readonly WorldConfiguration _worldConfig;
     private DateTime _lastSaveTimestamp = DateTime.MinValue;
+    private bool _worldIsCorrupted = false;
 
     public GameSimulationService(
         ILogger<GameSimulationService> logger, 
@@ -117,7 +118,8 @@ public class GameSimulationService : BackgroundService, IGameSimulationService
         }
         catch (Exception ex)
         {
-            _logger.LogCritical(ex, "Fatal error in game simulation - service will stop gracefully");
+            _worldIsCorrupted = true;
+            _logger.LogCritical(ex, "Fatal error in game simulation - world marked as corrupted, will not be saved");
             // Don't rethrow - let the service stop gracefully via StopAsync
         }
     }
@@ -137,14 +139,21 @@ public class GameSimulationService : BackgroundService, IGameSimulationService
         }
 
         // Save world state immediately before shutting down to ensure no data loss
-        try
+        if (_worldIsCorrupted)
         {
-            _logger.LogInformation("Saving world state before shutdown...");
-            await _worldPersistenceService.SaveWorldImmediatelyAsync(_world);
+            _logger.LogWarning("Skipping world save during shutdown - world is in corrupted state");
         }
-        catch (Exception ex)
+        else
         {
-            _logger.LogError(ex, "Failed to save world state during shutdown");
+            try
+            {
+                _logger.LogInformation("Saving world state before shutdown...");
+                await _worldPersistenceService.SaveWorldImmediatelyAsync(_world);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to save world state during shutdown");
+            }
         }
 
         // Call base StopAsync to handle the rest of the shutdown process
@@ -155,6 +164,12 @@ public class GameSimulationService : BackgroundService, IGameSimulationService
 
     public async Task ProcessCommandRequest(ICommandRequest request)
     {
+        if (_worldIsCorrupted)
+        {
+            _logger.LogWarning("Rejecting command request - world is in corrupted state");
+            throw new InvalidOperationException("World is in corrupted state and cannot process commands");
+        }
+
         // TODO: Performance optimization needed for high-throughput scenarios (5k+ players, 10k+ commands/sec)
         // Current approach: Direct database persistence per command
         // Potential issues:
@@ -203,8 +218,8 @@ public class GameSimulationService : BackgroundService, IGameSimulationService
         // Broadcast world state to all connected clients
         await _hubContext.Clients.All.WorldUpdate(world.ToDto());
         
-        // Check if we should save the world state
-        if (ShouldSaveWorld())
+        // Check if we should save the world state (only if not corrupted)
+        if (ShouldSaveWorld() && !_worldIsCorrupted)
         {
             _worldPersistenceService.EnqueueWorldForSave(_world);
             _lastSaveTimestamp = DateTime.UtcNow;
