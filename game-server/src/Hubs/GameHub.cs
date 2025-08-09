@@ -43,12 +43,40 @@ public class GameHub : Hub<IGameClient>
     }
 
     [Authorize]
+    public async Task<bool> TryContinueRegister(Guid playerId)
+    {
+        _logger.LogInformation("Player {PlayerId} checking for existing registration", playerId);
+        
+        var existingResult = await _playerRegistrationService.GetExistingRegistrationAsync(playerId);
+        if (existingResult == null)
+        {
+            _logger.LogDebug("No existing registration found for player {PlayerId}", playerId);
+            return false;
+        }
+        
+        await ProcessRegistrationResult(playerId, existingResult);
+        return true;
+    }
+
+    [Authorize]
     public async Task RegisterForWorld(Guid playerId, StartingDirection startingDirection)
     {
-        _logger.LogInformation("Player {PlayerId} requesting registration for this world with starting direction {StartingDirection}", playerId, startingDirection);
+        _logger.LogInformation("Player {PlayerId} requesting NEW registration for this world with starting direction {StartingDirection}", playerId, startingDirection);
         
-        var result = await _playerRegistrationService.RegisterPlayerAsync(playerId, startingDirection);
-        
+        try
+        {
+            var result = await _playerRegistrationService.RegisterPlayerAsync(playerId, startingDirection);
+            await ProcessRegistrationResult(playerId, result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            _logger.LogWarning("Duplicate registration attempt for player {PlayerId}: {Message}", playerId, ex.Message);
+            throw new HubException("Player already has a registration in progress. Please wait for it to complete.");
+        }
+    }
+
+    private async Task ProcessRegistrationResult(Guid playerId, RegistrationResult result)
+    {
         // Only succeed if the game command was successfully enqueued
         if (result.FailureReason == RegistrationFailureReason.GameCommandEnqueueFailed)
         {

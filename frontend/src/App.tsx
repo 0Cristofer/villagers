@@ -223,10 +223,49 @@ function App() {
     }
   };
 
-  const showDirectionSelectionForWorld = (world: WorldResponse) => {
+  const showDirectionSelectionForWorld = async (world: WorldResponse) => {
+    if (!player) return;
+    
+    const worldKey = world.worldId;
+    setRegistrationLoading(prev => new Set([...prev, worldKey]));
     setSelectedWorld(world);
-    setShowDirectionSelection(true);
     setError('');
+    
+    try {
+      // Create or get existing connection for this world
+      let connection = connectionRefs.current.get(worldKey);
+      
+      if (!connection) {
+        connection = await createHubConnection(world);
+        if (!connection) {
+          throw new Error('Failed to establish SignalR connection');
+        }
+        connectionRefs.current.set(worldKey, connection);
+      }
+
+      // First try to continue any existing registration
+      const canContinue: boolean = await connection.invoke(GameHubMethods.TryContinueRegister, player.id);
+      
+      if (canContinue) {
+        // Existing registration was found and processed successfully
+        console.log(`Successfully continued registration for world ${world.config.worldName}`);
+        setShowGamePage(true);
+      } else {
+        // No existing registration found, show direction selection
+        console.log(`No existing registration found for world ${world.config.worldName}, showing direction selection`);
+        setShowDirectionSelection(true);
+      }
+      
+    } catch (error) {
+      console.error(`Failed to check existing registration for world ${world.config.worldName}:`, error);
+      setError(`Failed to register for ${world.config.worldName}. Please try again.`);
+    } finally {
+      setRegistrationLoading(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(worldKey);
+        return newSet;
+      });
+    }
   };
 
   const confirmRegistration = async () => {
@@ -403,7 +442,7 @@ function App() {
           </div>
 
           <div className="available-worlds">
-            <h3>Available Worlds</h3>
+            <h3>Join New Worlds</h3>
             {worldsLoading ? (
               <p>Loading worlds...</p>
             ) : unregisteredWorlds.length > 0 ? (
@@ -427,7 +466,7 @@ function App() {
                         onClick={() => showDirectionSelectionForWorld(world)}
                         disabled={registrationLoading.has(world.worldId)}
                       >
-                        {registrationLoading.has(world.worldId) ? 'Registering...' : 'Register'}
+                        {registrationLoading.has(world.worldId) ? 'Checking...' : 'Join World'}
                       </button>
                     )}
                   </div>

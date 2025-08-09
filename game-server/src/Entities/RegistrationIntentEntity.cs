@@ -1,6 +1,5 @@
 using System.ComponentModel.DataAnnotations;
 using Microsoft.EntityFrameworkCore;
-using Villagers.GameServer.Domain;
 using Villagers.GameServer.Domain.Enums;
 
 namespace Villagers.GameServer.Entities;
@@ -20,5 +19,5 @@ public class RegistrationIntentEntity
     
     public int RetryCount { get; set; } = 0;
     
-    public RegistrationResult? LastResult { get; set; }
+    public RegistrationResultEntity? LastResult { get; set; }
 }

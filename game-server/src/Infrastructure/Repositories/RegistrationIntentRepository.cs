@@ -55,7 +55,7 @@ public class RegistrationIntentRepository : IRegistrationIntentRepository
         {
             entity.RetryCount = intent.GetRetryCount();
             entity.LastRetryAt = intent.LastRetryAt;
-            entity.LastResult = intent.LastResult;
+            entity.LastResult = intent.LastResult?.ToEntity();
         }
 
         await _context.SaveChangesAsync();

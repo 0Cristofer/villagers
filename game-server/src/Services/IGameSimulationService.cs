@@ -9,4 +9,5 @@ public interface IGameSimulationService : IHostedService
     Guid GetWorldId();
     int GetCurrentTickNumber();
     int GetNextTickNumber();
+    bool IsPlayerRegistered(Guid playerId);
 }

@@ -45,7 +45,7 @@ public class GameDbContext : DbContext
             entity.Property(e => e.CreatedAt).HasDefaultValueSql("NOW()");
             entity.Property(e => e.LastRetryAt).HasDefaultValueSql("NOW()");
             
-            // Configure RegistrationResult as owned type
+            // Configure RegistrationResultEntity as owned type
             entity.OwnsOne(e => e.LastResult, result =>
             {
                 result.Property(r => r.IsSuccess).HasColumnName("LastResult_IsSuccess");

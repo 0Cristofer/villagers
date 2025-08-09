@@ -216,6 +216,13 @@ public class GameSimulationService : BackgroundService, IGameSimulationService
         return _world.GetNextTickNumber();
     }
 
+    public bool IsPlayerRegistered(Guid playerId)
+    {
+        // TODO: implement proper check to see if player is registered in the world
+        // This should check the world's registered players list
+        return false;
+    }
+
     private async Task OnWorldTick(World world)
     {
         _logger.LogDebug("World tick: {TickNumber}", world.GetCurrentTickNumber());

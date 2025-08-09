@@ -47,5 +47,6 @@ export type TypedHubConnection = {
 // Hub method names to avoid typos
 export const GameHubMethods = {
   RegisterForWorld: 'RegisterForWorld',
+  TryContinueRegister: 'TryContinueRegister',
   SendTestCommand: 'SendTestCommand'
 } as const;

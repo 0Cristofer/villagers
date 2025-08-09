@@ -15,7 +15,7 @@ public static class RegistrationIntentExtensions
             CreatedAt = intent.CreatedAt,
             LastRetryAt = intent.LastRetryAt,
             RetryCount = intent.GetRetryCount(),
-            LastResult = intent.LastResult
+            LastResult = intent.LastResult?.ToEntity()
         };
     }
 
@@ -28,7 +28,7 @@ public static class RegistrationIntentExtensions
             entity.CreatedAt,
             entity.LastRetryAt,
             entity.RetryCount,
-            entity.LastResult
+            entity.LastResult?.ToDomain()
         );
     }
 }

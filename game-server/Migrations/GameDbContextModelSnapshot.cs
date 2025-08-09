@@ -68,12 +68,6 @@ namespace Villagers.GameServer.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasDefaultValueSql("NOW()");
 
-                    b.Property<bool>("IsCompleted")
-                        .HasColumnType("boolean");
-
-                    b.Property<string>("LastError")
-                        .HasColumnType("text");
-
                     b.Property<DateTime>("LastRetryAt")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp with time zone")
@@ -90,9 +84,9 @@ namespace Villagers.GameServer.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("PlayerId");
+                    b.HasIndex("CreatedAt");
 
-                    b.HasIndex("IsCompleted", "CreatedAt");
+                    b.HasIndex("PlayerId");
 
                     b.ToTable("RegistrationIntents");
                 });
@@ -114,6 +108,36 @@ namespace Villagers.GameServer.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("WorldStates");
+                });
+
+            modelBuilder.Entity("Villagers.GameServer.Entities.RegistrationIntentEntity", b =>
+                {
+                    b.OwnsOne("Villagers.GameServer.Entities.RegistrationResultEntity", "LastResult", b1 =>
+                        {
+                            b1.Property<Guid>("RegistrationIntentEntityId")
+                                .HasColumnType("uuid");
+
+                            b1.Property<string>("ErrorMessage")
+                                .HasColumnType("text")
+                                .HasColumnName("LastResult_ErrorMessage");
+
+                            b1.Property<int>("FailureReason")
+                                .HasColumnType("integer")
+                                .HasColumnName("LastResult_FailureReason");
+
+                            b1.Property<bool>("IsSuccess")
+                                .HasColumnType("boolean")
+                                .HasColumnName("LastResult_IsSuccess");
+
+                            b1.HasKey("RegistrationIntentEntityId");
+
+                            b1.ToTable("RegistrationIntents");
+
+                            b1.WithOwner()
+                                .HasForeignKey("RegistrationIntentEntityId");
+                        });
+
+                    b.Navigation("LastResult");
                 });
 
             modelBuilder.Entity("Villagers.GameServer.Entities.WorldEntity", b =>

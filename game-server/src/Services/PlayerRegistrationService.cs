@@ -43,14 +43,46 @@ public class PlayerRegistrationService : BackgroundService, IPlayerRegistrationS
         await base.StartAsync(cancellationToken);
     }
 
+    // Called by GameHub to check for existing registration or pending intent
+    public async Task<RegistrationResult?> GetExistingRegistrationAsync(Guid playerId)
+    {
+        _logger.LogDebug("Checking existing registration for player {PlayerId}", playerId);
+
+        // Check in-memory only (all intents are always in memory)
+        if (!_gameSimulationService.IsPlayerRegistered(playerId) && _pendingIntents.TryGetValue(playerId, out var existingIntent))
+        {
+            // Process existing intent right away
+            return await TryProcessIntent(existingIntent);
+        }
+
+        return null;
+    }
+
     // Called by GameHub for new registration requests
     public async Task<RegistrationResult> RegisterPlayerAsync(Guid playerId, StartingDirection startingDirection)
     {
         _logger.LogInformation("Player {PlayerId} requesting registration with starting direction {StartingDirection}", 
             playerId, startingDirection);
 
-        // Get or create intent (with proper persistence)
-        var intent = await GetOrCreateIntentAsync(playerId, startingDirection);
+        // Check if player already has a registration intent
+        if (_pendingIntents.ContainsKey(playerId))
+        {
+            throw new InvalidOperationException($"Player {playerId} already has a registration intent. Use TryContinueRegister to continue existing registration.");
+        }
+
+        // Check if player is already registered in the world
+        if (_gameSimulationService.IsPlayerRegistered(playerId))
+        {
+            throw new InvalidOperationException($"Player {playerId} is already registered in the world.");
+        }
+
+        // Create new intent and persist
+        var intent = new RegistrationIntent(playerId, startingDirection);
+        await PersistIntentAsync(intent);
+        _pendingIntents[playerId] = intent;
+        
+        _logger.LogDebug("Created and persisted registration intent {IntentId} for player {PlayerId}", 
+            intent.Id, playerId);
         
         // Try immediate processing
         return await TryProcessIntent(intent);
@@ -107,29 +139,6 @@ public class PlayerRegistrationService : BackgroundService, IPlayerRegistrationS
         }
     }
 
-    private async Task<RegistrationIntent> GetOrCreateIntentAsync(Guid playerId, StartingDirection startingDirection)
-    {
-        // Check if intent already exists
-        if (_pendingIntents.TryGetValue(playerId, out var existingIntent))
-        {
-            return existingIntent;
-        }
-        
-        // Create new intent and persist it
-        var intent = new RegistrationIntent(playerId, startingDirection);
-        
-        using var scope = _serviceScopeFactory.CreateScope();
-        var repository = scope.ServiceProvider.GetRequiredService<IRegistrationIntentRepository>();
-        await repository.CreateIntentAsync(intent);
-        
-        // Add to memory after successful persistence
-        _pendingIntents[playerId] = intent;
-        
-        _logger.LogDebug("Created and persisted registration intent {IntentId} for player {PlayerId}", 
-            intent.Id, playerId);
-        
-        return intent;
-    }
 
     private async Task PersistIntentAsync(RegistrationIntent intent)
     {
