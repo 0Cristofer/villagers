@@ -90,11 +90,10 @@ public static class ServiceCollectionExtensions
         // Add world registration service
         services.AddSingleton<IWorldRegistrationService, WorldRegistrationService>();
         
-        // Add player registration service
+        // Add unified player registration service (with background processing)
         services.AddSingleton<IPlayerRegistrationService, PlayerRegistrationService>();
-        
-        // Add player registration intent service
-        services.AddScoped<IPlayerRegistrationIntentService, PlayerRegistrationIntentService>();
+        services.AddHostedService(provider => 
+            (PlayerRegistrationService)provider.GetRequiredService<IPlayerRegistrationService>());
         
         // Add game persistence service
         services.AddScoped<IGamePersistenceService, GamePersistenceService>();
@@ -104,10 +103,6 @@ public static class ServiceCollectionExtensions
         services.AddHostedService(provider => 
             provider.GetRequiredService<IWorldPersistenceBackgroundService>());
         
-        // Add background registration intent service
-        services.AddSingleton<IRegistrationIntentBackgroundService, RegistrationIntentBackgroundService>();
-        services.AddHostedService(provider => 
-            provider.GetRequiredService<IRegistrationIntentBackgroundService>());
         
         services.AddSignalR();
         services.AddSingleton<IGameSimulationService, GameSimulationService>();

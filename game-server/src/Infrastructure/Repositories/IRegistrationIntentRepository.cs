@@ -8,4 +8,5 @@ public interface IRegistrationIntentRepository
     Task<RegistrationIntent?> GetPendingIntentAsync(Guid playerId);
     Task<List<RegistrationIntent>> GetAllPendingIntentsAsync();
     Task SaveIntentAsync(RegistrationIntent intent);
+    Task DeleteIntentAsync(Guid intentId);
 }

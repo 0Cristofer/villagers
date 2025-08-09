@@ -53,12 +53,24 @@ public class RegistrationIntentRepository : IRegistrationIntentRepository
         }
         else
         {
-            entity.RetryCount = intent.RetryCount;
+            entity.RetryCount = intent.GetRetryCount();
             entity.LastRetryAt = intent.LastRetryAt;
-            entity.IsCompleted = intent.IsCompleted;
+            entity.IsCompleted = intent.IsCompleted();
             entity.LastError = intent.LastError;
         }
 
         await _context.SaveChangesAsync();
+    }
+
+    public async Task DeleteIntentAsync(Guid intentId)
+    {
+        var entity = await _context.RegistrationIntents
+            .FirstOrDefaultAsync(x => x.Id == intentId);
+
+        if (entity != null)
+        {
+            _context.RegistrationIntents.Remove(entity);
+            await _context.SaveChangesAsync();
+        }
     }
 }

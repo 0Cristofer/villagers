@@ -14,8 +14,8 @@ public static class RegistrationIntentExtensions
             StartingDirection = intent.StartingDirection,
             CreatedAt = intent.CreatedAt,
             LastRetryAt = intent.LastRetryAt,
-            RetryCount = intent.RetryCount,
-            IsCompleted = intent.IsCompleted,
+            RetryCount = intent.GetRetryCount(),
+            IsCompleted = intent.IsCompleted(),
             LastError = intent.LastError
         };
     }
