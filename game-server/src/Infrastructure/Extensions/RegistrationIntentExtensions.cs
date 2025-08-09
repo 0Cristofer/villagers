@@ -16,7 +16,7 @@ public static class RegistrationIntentExtensions
             LastRetryAt = intent.LastRetryAt,
             RetryCount = intent.GetRetryCount(),
             IsCompleted = intent.IsCompleted(),
-            LastError = intent.LastError
+            LastResult = intent.LastResult
         };
     }
 
@@ -30,7 +30,7 @@ public static class RegistrationIntentExtensions
             entity.LastRetryAt,
             entity.RetryCount,
             entity.IsCompleted,
-            entity.LastError
+            entity.LastResult
         );
     }
 }

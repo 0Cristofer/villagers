@@ -43,7 +43,7 @@ public class PlayerRegistrationService : BackgroundService, IPlayerRegistrationS
     }
 
     // Called by GameHub for new registration requests
-    public async Task RegisterPlayerAsync(Guid playerId, StartingDirection startingDirection)
+    public async Task<RegistrationResult> RegisterPlayerAsync(Guid playerId, StartingDirection startingDirection)
     {
         _logger.LogInformation("Player {PlayerId} requesting registration with starting direction {StartingDirection}", 
             playerId, startingDirection);
@@ -52,7 +52,7 @@ public class PlayerRegistrationService : BackgroundService, IPlayerRegistrationS
         var intent = await GetOrCreateIntentAsync(playerId, startingDirection);
         
         // Try immediate processing
-        await TryProcessIntent(intent);
+        return await TryProcessIntent(intent);
     }
 
     // Background service implementation
@@ -130,6 +130,20 @@ public class PlayerRegistrationService : BackgroundService, IPlayerRegistrationS
         return intent;
     }
 
+    private async Task PersistIntentAsync(RegistrationIntent intent)
+    {
+        using var scope = _serviceScopeFactory.CreateScope();
+        var repository = scope.ServiceProvider.GetRequiredService<IRegistrationIntentRepository>();
+        await repository.SaveIntentAsync(intent);
+    }
+
+    private async Task DeleteIntentAsync(Guid intentId)
+    {
+        using var scope = _serviceScopeFactory.CreateScope();
+        var repository = scope.ServiceProvider.GetRequiredService<IRegistrationIntentRepository>();
+        await repository.DeleteIntentAsync(intentId);
+    }
+
     private async Task ProcessPendingIntents()
     {
         var intentsToProcess = _pendingIntents.Values
@@ -147,7 +161,7 @@ public class PlayerRegistrationService : BackgroundService, IPlayerRegistrationS
         foreach (var intent in intentsToProcess)
         {
             var result = await TryProcessIntent(intent);
-            if (result) processedCount++;
+            if (result.IsSuccess) processedCount++;
             else failedCount++;
         }
 
@@ -158,11 +172,13 @@ public class PlayerRegistrationService : BackgroundService, IPlayerRegistrationS
         }
     }
 
-    private async Task<bool> TryProcessIntent(RegistrationIntent intent)
+    private async Task<RegistrationResult> TryProcessIntent(RegistrationIntent intent)
     {
         if (!intent.TryStartProcessing())
         {
-            return await intent.WaitFinishProcessingAsync();
+            // Wait for other processor to finish
+            var success = await intent.WaitFinishProcessingAsync();
+            return success ? RegistrationResult.Success() : (intent.LastResult ?? RegistrationResult.UnknownFailure("Processing failed"));
         }
 
         try
@@ -170,39 +186,62 @@ public class PlayerRegistrationService : BackgroundService, IPlayerRegistrationS
             _logger.LogDebug("Processing registration intent {IntentId} for player {PlayerId}", 
                 intent.Id, intent.PlayerId);
 
-            // Step 1: Process game command (if not already done)
+            // Step 1: Process game command (CRITICAL - must succeed for player to access world)
             var worldId = _gameSimulationService.GetWorldId();
             var request = new RegisterPlayerCommandRequest(intent.PlayerId, intent.StartingDirection);
-            await _gameSimulationService.ProcessCommandRequest(request);
             
-            // Step 2: Register with API
-            await RegisterPlayerForWorldAsync(intent.PlayerId, worldId);
+            try
+            {
+                await _gameSimulationService.ProcessCommandRequest(request);
+            }
+            catch (Exception gameEx)
+            {
+                var result = RegistrationResult.GameCommandFailure(gameEx.Message);
+                intent.FinishProcessing(result);
+                await PersistIntentAsync(intent);
+                
+                _logger.LogError(gameEx, "Game command failed for player {PlayerId}: {Message}", intent.PlayerId, gameEx.Message);
+                return result;
+            }
+            
+            // Step 2: Register with API (can fail and retry in background)
+            try
+            {
+                await RegisterPlayerForWorldAsync(intent.PlayerId, worldId);
+            }
+            catch (Exception apiEx)
+            {
+                var result = RegistrationResult.ApiFailure(apiEx.Message);
+                intent.FinishProcessing(result);
+                await PersistIntentAsync(intent);
+                
+                _logger.LogWarning(apiEx, "API registration failed for player {PlayerId}, will retry in background: {Message}", 
+                    intent.PlayerId, apiEx.Message);
+                return result;
+            }
             
             // Step 3: Mark as completed and remove from memory
             _pendingIntents.TryRemove(intent.PlayerId, out _);
             
             // Step 4: Delete from database (no need to keep completed intents)
-            using var scope = _serviceScopeFactory.CreateScope();
-            var repository = scope.ServiceProvider.GetRequiredService<IRegistrationIntentRepository>();
-            await repository.DeleteIntentAsync(intent.Id);
+            await DeleteIntentAsync(intent.Id);
             
-            intent.FinishProcessing(true);
+            var successResult = RegistrationResult.Success();
+            intent.FinishProcessing(successResult);
             _logger.LogInformation("Successfully completed registration for player {PlayerId}", intent.PlayerId);
-            return true;
+            return successResult;
         }
         catch (Exception ex)
         {
-            // Mark retry and update database
-            intent.FinishProcessing(false, ex.Message);
+            // Unexpected error
+            var result = RegistrationResult.UnknownFailure(ex.Message);
+            intent.FinishProcessing(result);
+            await PersistIntentAsync(intent);
             
-            using var scope = _serviceScopeFactory.CreateScope();
-            var repository = scope.ServiceProvider.GetRequiredService<IRegistrationIntentRepository>();
-            await repository.SaveIntentAsync(intent);
+            _logger.LogError(ex, "Unexpected error processing registration intent {IntentId} for player {PlayerId}: {Message}",
+                intent.Id, intent.PlayerId, ex.Message);
             
-            _logger.LogError(ex, "Failed to process registration intent {IntentId} for player {PlayerId} (attempt {RetryCount}): {Message}",
-                intent.Id, intent.PlayerId, intent.GetRetryCount(), intent.LastError);
-            
-            return false;
+            return result;
         }
     }
 

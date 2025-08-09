@@ -188,7 +188,8 @@ public class GameSimulationService : BackgroundService, IGameSimulationService
         var command = _world.EnqueueCommand(request);
         
         // Persist the command - if this fails, the command is already enqueued but will be lost on crash
-        // This is acceptable as the command hasn't been processed yet
+        // This is acceptable for now, but can only be fixed with completely atomic processing (from enqueue to
+        // persistence). Right now, there's a gap between enqueuing and persistence
         using var scope = _serviceScopeFactory.CreateScope();
         var gamePersistenceService = scope.ServiceProvider.GetRequiredService<IGamePersistenceService>();
         

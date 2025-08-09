@@ -9,7 +9,7 @@ public class RegistrationIntent
     public StartingDirection StartingDirection { get; }
     public DateTime CreatedAt { get; }
     public DateTime LastRetryAt { get; private set; }
-    public string? LastError { get; private set; }
+    public RegistrationResult? LastResult { get; private set; }
 
     private readonly object _processingLock = new();
     private bool _isCompleted;
@@ -22,7 +22,7 @@ public class RegistrationIntent
     }
 
     public RegistrationIntent(Guid id, Guid playerId, StartingDirection startingDirection, 
-        DateTime createdAt, DateTime lastRetryAt, int retryCount, bool isCompleted, string? lastError)
+        DateTime createdAt, DateTime lastRetryAt, int retryCount, bool isCompleted, RegistrationResult? lastResult)
     {
         if (id == Guid.Empty)
             throw new ArgumentException("Intent ID cannot be empty", nameof(id));
@@ -36,7 +36,7 @@ public class RegistrationIntent
         LastRetryAt = lastRetryAt;
         _retryCount = retryCount;
         _isCompleted = isCompleted;
-        LastError = lastError;
+        LastResult = lastResult;
     }
 
     public int GetRetryCount()
@@ -68,7 +68,7 @@ public class RegistrationIntent
         }
     }
 
-    public void FinishProcessing(bool success, string? error = null)
+    public void FinishProcessing(RegistrationResult result)
     {
         lock (_processingLock)
         {
@@ -77,16 +77,16 @@ public class RegistrationIntent
             
             _isProcessing = false;
 
-            if (success)
+            if (result.IsSuccess)
             {
                 _isCompleted = true;
-                LastError = null;
+                LastResult = result;
             }
             else
             {
                 _retryCount++;
                 LastRetryAt = DateTime.UtcNow;
-                LastError = error;
+                LastResult = result;
             }
             
             _processingCompletion!.SetResult(_isCompleted);

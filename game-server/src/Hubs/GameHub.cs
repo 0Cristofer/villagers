@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
+using Villagers.GameServer.Domain;
 using Villagers.GameServer.Domain.Commands.Requests;
 using Villagers.GameServer.Domain.Enums;
 using Villagers.GameServer.Interfaces;
@@ -46,9 +47,15 @@ public class GameHub : Hub<IGameClient>
     {
         _logger.LogInformation("Player {PlayerId} requesting registration for this world with starting direction {StartingDirection}", playerId, startingDirection);
         
-        // Delegate to the unified player registration service
-        await _playerRegistrationService.RegisterPlayerAsync(playerId, startingDirection);
-        // TODO throw if command enqueue failed? cleanup solution
-        _logger.LogInformation("Registration request processed for player {PlayerId}", playerId);
+        var result = await _playerRegistrationService.RegisterPlayerAsync(playerId, startingDirection);
+        
+        // Only succeed if the game command succeeded (player can access the world)
+        if (result.FailureReason == RegistrationFailureReason.GameCommandFailed)
+        {
+            _logger.LogError("Game command failed for player {PlayerId}: {ErrorMessage}", playerId, result.ErrorMessage);
+            throw new HubException($"Registration failed: {result.ErrorMessage}");
+        }
+        
+        _logger.LogInformation("Registration processed for player {PlayerId} - game command succeeded", playerId);
     }
 }

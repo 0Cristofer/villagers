@@ -1,4 +1,6 @@
 using System.ComponentModel.DataAnnotations;
+using Microsoft.EntityFrameworkCore;
+using Villagers.GameServer.Domain;
 using Villagers.GameServer.Domain.Enums;
 
 namespace Villagers.GameServer.Entities;
@@ -20,5 +22,5 @@ public class RegistrationIntentEntity
     
     public bool IsCompleted { get; set; } = false;
     
-    public string? LastError { get; set; }
+    public RegistrationResult? LastResult { get; set; }
 }
