@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using Villagers.GameServer.Domain;
+using Villagers.GameServer.Domain.Commands;
 using Villagers.GameServer.Domain.Commands.Requests;
 using Villagers.GameServer.Domain.Enums;
 using Villagers.GameServer.Infrastructure.Repositories;
@@ -177,8 +178,7 @@ public class PlayerRegistrationService : BackgroundService, IPlayerRegistrationS
         if (!intent.TryStartProcessing())
         {
             // Wait for other processor to finish
-            var success = await intent.WaitFinishProcessingAsync();
-            return success ? RegistrationResult.Success() : (intent.LastResult ?? RegistrationResult.UnknownFailure("Processing failed"));
+            return await intent.WaitFinishProcessingAsync();
         }
 
         try
@@ -190,9 +190,11 @@ public class PlayerRegistrationService : BackgroundService, IPlayerRegistrationS
             var worldId = _gameSimulationService.GetWorldId();
             var request = new RegisterPlayerCommandRequest(intent.PlayerId, intent.StartingDirection);
             
+            ICommand command;
+            
             try
             {
-                await _gameSimulationService.ProcessCommandRequest(request);
+                command = await _gameSimulationService.ProcessCommandRequest(request);
             }
             catch (Exception gameEx)
             {
@@ -200,7 +202,7 @@ public class PlayerRegistrationService : BackgroundService, IPlayerRegistrationS
                 intent.FinishProcessing(result);
                 await PersistIntentAsync(intent);
                 
-                _logger.LogError(gameEx, "Game command failed for player {PlayerId}: {Message}", intent.PlayerId, gameEx.Message);
+                _logger.LogError(gameEx, "Game command enqueue failed for player {PlayerId}: {Message}", intent.PlayerId, gameEx.Message);
                 return result;
             }
             
@@ -211,7 +213,9 @@ public class PlayerRegistrationService : BackgroundService, IPlayerRegistrationS
             }
             catch (Exception apiEx)
             {
-                var result = RegistrationResult.ApiFailure(apiEx.Message);
+                // Game command was enqueued successfully, so we include it in the result
+                // The API failure will be retried in the background
+                var result = RegistrationResult.ApiFailure(apiEx.Message, command);
                 intent.FinishProcessing(result);
                 await PersistIntentAsync(intent);
                 
@@ -226,7 +230,7 @@ public class PlayerRegistrationService : BackgroundService, IPlayerRegistrationS
             // Step 4: Delete from database (no need to keep completed intents)
             await DeleteIntentAsync(intent.Id);
             
-            var successResult = RegistrationResult.Success();
+            var successResult = RegistrationResult.Success(command);
             intent.FinishProcessing(successResult);
             _logger.LogInformation("Successfully completed registration for player {PlayerId}", intent.PlayerId);
             return successResult;

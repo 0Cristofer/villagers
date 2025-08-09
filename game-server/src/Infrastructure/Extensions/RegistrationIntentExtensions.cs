@@ -15,7 +15,6 @@ public static class RegistrationIntentExtensions
             CreatedAt = intent.CreatedAt,
             LastRetryAt = intent.LastRetryAt,
             RetryCount = intent.GetRetryCount(),
-            IsCompleted = intent.IsCompleted(),
             LastResult = intent.LastResult
         };
     }
@@ -29,7 +28,6 @@ public static class RegistrationIntentExtensions
             entity.CreatedAt,
             entity.LastRetryAt,
             entity.RetryCount,
-            entity.IsCompleted,
             entity.LastResult
         );
     }

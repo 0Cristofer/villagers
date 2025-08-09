@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Options;
 using Villagers.GameServer.Configuration;
 using Villagers.GameServer.Domain;
+using Villagers.GameServer.Domain.Commands;
 using Villagers.GameServer.Domain.Commands.Requests;
 using Villagers.GameServer.Extensions;
 using Villagers.GameServer.Interfaces;
@@ -163,7 +164,7 @@ public class GameSimulationService : BackgroundService, IGameSimulationService
         _logger.LogInformation("Game Simulation Service stopped");
     }
 
-    public async Task ProcessCommandRequest(ICommandRequest request)
+    public async Task<ICommand> ProcessCommandRequest(ICommandRequest request)
     {
         if (_worldIsCorrupted)
         {
@@ -196,6 +197,8 @@ public class GameSimulationService : BackgroundService, IGameSimulationService
         await gamePersistenceService.SaveCommandAsync(command);
         _logger.LogDebug("Persisted command {CommandType} from player {PlayerId} for tick {TickNumber}", 
             command.GetType().Name, command.PlayerId, command.TickNumber);
+        
+        return command;
     }
 
     public Guid GetWorldId()

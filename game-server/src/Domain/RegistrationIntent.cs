@@ -12,17 +12,16 @@ public class RegistrationIntent
     public RegistrationResult? LastResult { get; private set; }
 
     private readonly object _processingLock = new();
-    private bool _isCompleted;
     private bool _isProcessing;
     private int _retryCount;
-    private TaskCompletionSource<bool>? _processingCompletion;
+    private TaskCompletionSource<RegistrationResult>? _processingCompletion;
     public RegistrationIntent(Guid playerId, StartingDirection startingDirection)
-        : this(Guid.NewGuid(), playerId, startingDirection, DateTime.UtcNow, DateTime.UtcNow, 0, false, null)
+        : this(Guid.NewGuid(), playerId, startingDirection, DateTime.UtcNow, DateTime.UtcNow, 0, null)
     {
     }
 
     public RegistrationIntent(Guid id, Guid playerId, StartingDirection startingDirection, 
-        DateTime createdAt, DateTime lastRetryAt, int retryCount, bool isCompleted, RegistrationResult? lastResult)
+        DateTime createdAt, DateTime lastRetryAt, int retryCount, RegistrationResult? lastResult)
     {
         if (id == Guid.Empty)
             throw new ArgumentException("Intent ID cannot be empty", nameof(id));
@@ -35,7 +34,6 @@ public class RegistrationIntent
         CreatedAt = createdAt;
         LastRetryAt = lastRetryAt;
         _retryCount = retryCount;
-        _isCompleted = isCompleted;
         LastResult = lastResult;
     }
 
@@ -51,7 +49,7 @@ public class RegistrationIntent
     {
         lock (_processingLock)
         {
-            return _isCompleted;
+            return LastResult?.IsSuccess == true;
         }
     }
 
@@ -59,11 +57,11 @@ public class RegistrationIntent
     {
         lock (_processingLock)
         {
-            if (_isProcessing || _isCompleted)
+            if (_isProcessing || IsCompleted())
                 return false;
             
             _isProcessing = true;
-            _processingCompletion = new TaskCompletionSource<bool>();
+            _processingCompletion = new TaskCompletionSource<RegistrationResult>();
             return true;
         }
     }
@@ -76,29 +74,24 @@ public class RegistrationIntent
                 throw new InvalidOperationException("Cannot finish processing that has not started");
             
             _isProcessing = false;
+            LastResult = result;
 
-            if (result.IsSuccess)
-            {
-                _isCompleted = true;
-                LastResult = result;
-            }
-            else
+            if (!result.IsSuccess)
             {
                 _retryCount++;
                 LastRetryAt = DateTime.UtcNow;
-                LastResult = result;
             }
             
-            _processingCompletion!.SetResult(_isCompleted);
+            _processingCompletion!.SetResult(result);
             _processingCompletion = null;
         }
     }
 
-    public Task<bool> WaitFinishProcessingAsync()
+    public Task<RegistrationResult> WaitFinishProcessingAsync()
     {
         lock (_processingLock)
         {
-            return _processingCompletion?.Task ??  Task.FromResult(_isCompleted);
+            return _processingCompletion?.Task ?? Task.FromResult(LastResult ?? throw new InvalidOperationException("No result available - this should not happen"));
         }
     }
 

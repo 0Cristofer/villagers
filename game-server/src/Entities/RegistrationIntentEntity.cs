@@ -20,7 +20,5 @@ public class RegistrationIntentEntity
     
     public int RetryCount { get; set; } = 0;
     
-    public bool IsCompleted { get; set; } = false;
-    
     public RegistrationResult? LastResult { get; set; }
 }

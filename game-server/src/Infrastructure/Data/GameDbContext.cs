@@ -41,7 +41,7 @@ public class GameDbContext : DbContext
         {
             entity.HasKey(e => e.Id);
             entity.HasIndex(e => e.PlayerId);
-            entity.HasIndex(e => new { e.IsCompleted, e.CreatedAt });
+            entity.HasIndex(e => e.CreatedAt);
             entity.Property(e => e.CreatedAt).HasDefaultValueSql("NOW()");
             entity.Property(e => e.LastRetryAt).HasDefaultValueSql("NOW()");
             

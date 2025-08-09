@@ -39,7 +39,7 @@ public class GameHub : Hub<IGameClient>
         _logger.LogInformation("Received test command from player {PlayerId} via SignalR: {Message}", playerId, message);
         
         var request = new TestCommandRequest(playerId, message);
-        await _gameService.ProcessCommandRequest(request);
+        _ = await _gameService.ProcessCommandRequest(request);
     }
 
     [Authorize]
@@ -49,13 +49,28 @@ public class GameHub : Hub<IGameClient>
         
         var result = await _playerRegistrationService.RegisterPlayerAsync(playerId, startingDirection);
         
-        // Only succeed if the game command succeeded (player can access the world)
-        if (result.FailureReason == RegistrationFailureReason.GameCommandFailed)
+        // Only succeed if the game command was successfully enqueued
+        if (result.FailureReason == RegistrationFailureReason.GameCommandEnqueueFailed)
         {
-            _logger.LogError("Game command failed for player {PlayerId}: {ErrorMessage}", playerId, result.ErrorMessage);
+            _logger.LogError("Game command enqueue failed for player {PlayerId}: {ErrorMessage}", playerId, result.ErrorMessage);
             throw new HubException($"Registration failed: {result.ErrorMessage}");
         }
         
-        _logger.LogInformation("Registration processed for player {PlayerId} - game command succeeded", playerId);
+        // Wait for the command to be processed before returning success
+        try
+        {
+            await result.Command!.WaitForCompletionAsync();
+            _logger.LogInformation("Registration completed for player {PlayerId} - game command processed successfully", playerId);
+        }
+        catch (TimeoutException)
+        {
+            _logger.LogError("Game command timed out for player {PlayerId}", playerId);
+            throw new HubException("Registration timed out - please try again");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Game command processing failed for player {PlayerId}: {Message}", playerId, ex.Message);
+            throw new HubException($"Registration failed during processing: {ex.Message}");
+        }
     }
 }

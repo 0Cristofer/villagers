@@ -1,13 +1,14 @@
 namespace Villagers.GameServer.Domain.Commands;
 
-public class TestCommand : ICommand
+public class TestCommand : BaseCommand
 {
-    public Guid PlayerId { get; }
-    public DateTime Timestamp { get; }
-    public int TickNumber { get; }
+    public override Guid PlayerId { get; }
+    public override DateTime Timestamp { get; }
+    public override int TickNumber { get; }
     public string Message { get; }
 
-    public TestCommand(Guid playerId, string message, int tickNumber)
+    public TestCommand(Guid playerId, string message, int tickNumber, TimeSpan timeout)
+        : base(timeout)
     {
         PlayerId = playerId;
         Message = message ?? throw new ArgumentNullException(nameof(message));

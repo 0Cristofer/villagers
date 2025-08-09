@@ -25,7 +25,7 @@ public class RegistrationIntentRepository : IRegistrationIntentRepository
     public async Task<RegistrationIntent?> GetPendingIntentAsync(Guid playerId)
     {
         var entity = await _context.RegistrationIntents
-            .Where(x => x.PlayerId == playerId && !x.IsCompleted)
+            .Where(x => x.PlayerId == playerId && (x.LastResult == null || !x.LastResult.IsSuccess))
             .FirstOrDefaultAsync();
 
         return entity?.ToDomain();
@@ -34,7 +34,7 @@ public class RegistrationIntentRepository : IRegistrationIntentRepository
     public async Task<List<RegistrationIntent>> GetAllPendingIntentsAsync()
     {
         var entities = await _context.RegistrationIntents
-            .Where(x => !x.IsCompleted)
+            .Where(x => x.LastResult == null || !x.LastResult.IsSuccess)
             .OrderBy(x => x.CreatedAt)
             .ToListAsync();
 
@@ -55,7 +55,6 @@ public class RegistrationIntentRepository : IRegistrationIntentRepository
         {
             entity.RetryCount = intent.GetRetryCount();
             entity.LastRetryAt = intent.LastRetryAt;
-            entity.IsCompleted = intent.IsCompleted();
             entity.LastResult = intent.LastResult;
         }
 
