@@ -1,3 +1,5 @@
+// ReSharper disable PropertyCanBeMadeInitOnly.Global
+
 using System.ComponentModel.DataAnnotations;
 
 namespace Villagers.GameServer.Configuration;
@@ -9,8 +11,8 @@ public class WorldConfiguration
     public string WorldName { get; set; } = "Villagers World";
     
     [Required]
-    public TimeSpan TickInterval { get; set; } = TimeSpan.FromSeconds(5);
+    public TimeSpan TickInterval { get; set; } = TimeSpan.FromSeconds(1);
     
     [Required]
-    public TimeSpan SaveInterval { get; set; } = TimeSpan.FromSeconds(30);
+    public TimeSpan SaveInterval { get; set; } = TimeSpan.FromSeconds(10);
 }

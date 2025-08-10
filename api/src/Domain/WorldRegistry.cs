@@ -2,11 +2,11 @@ namespace Villagers.Api.Domain;
 
 public class WorldRegistry
 {
-    public Guid Id { get; private set; }
-    public Guid WorldId { get; private set; }
+    public Guid Id { get; }
+    public Guid WorldId { get; }
     public string ServerEndpoint { get; private set; }
     public WorldConfig Config { get; private set; }
-    public DateTime RegisteredAt { get; private set; }
+    public DateTime RegisteredAt { get; }
 
     public WorldRegistry(Guid id, Guid worldId, string serverEndpoint, WorldConfig config, DateTime registeredAt)
     {
@@ -16,8 +16,7 @@ public class WorldRegistry
             throw new ArgumentException("World ID cannot be empty", nameof(worldId));
         if (string.IsNullOrWhiteSpace(serverEndpoint))
             throw new ArgumentException("Server endpoint cannot be empty", nameof(serverEndpoint));
-        if (config == null)
-            throw new ArgumentNullException(nameof(config));
+        ArgumentNullException.ThrowIfNull(config);
 
         Id = id;
         WorldId = worldId;

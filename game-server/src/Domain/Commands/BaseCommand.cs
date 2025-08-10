@@ -2,16 +2,23 @@ namespace Villagers.GameServer.Domain.Commands;
 
 public abstract class BaseCommand : ICommand
 {
-    public abstract Guid PlayerId { get; }
-    public abstract DateTime Timestamp { get; }
-    public abstract int TickNumber { get; }
+    public Guid PlayerId { get; }
+    public DateTime Timestamp { get; }
+    public long TickNumber { get; }
 
     private readonly TaskCompletionSource<bool> _completion = new();
     private readonly CancellationTokenSource _timeoutCancellation = new();
     private readonly Task _delayTask;
 
-    protected BaseCommand(TimeSpan timeout)
+    protected BaseCommand(Guid playerId, long tickNumber, TimeSpan timeout)
     {
+        if (playerId == Guid.Empty)
+            throw new ArgumentException("Player ID cannot be empty", nameof(playerId));
+            
+        PlayerId = playerId;
+        TickNumber = tickNumber;
+        Timestamp = DateTime.UtcNow;
+        
         // Set up timeout
         _delayTask = Task.Delay(timeout, _timeoutCancellation.Token);
     }

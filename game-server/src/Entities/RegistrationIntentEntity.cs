@@ -1,5 +1,6 @@
+// ReSharper disable PropertyCanBeMadeInitOnly.Global
+
 using System.ComponentModel.DataAnnotations;
-using Microsoft.EntityFrameworkCore;
 using Villagers.GameServer.Domain.Enums;
 
 namespace Villagers.GameServer.Entities;
@@ -17,7 +18,7 @@ public class RegistrationIntentEntity
     
     public DateTime LastRetryAt { get; set; } = DateTime.UtcNow;
     
-    public int RetryCount { get; set; } = 0;
+    public int RetryCount { get; set; }
     
     public RegistrationResultEntity? LastResult { get; set; }
 }

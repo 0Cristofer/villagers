@@ -1,5 +1,4 @@
 using Microsoft.EntityFrameworkCore;
-using Villagers.GameServer.Domain;
 using Villagers.GameServer.Entities;
 
 namespace Villagers.GameServer.Infrastructure.Data;
@@ -44,14 +43,6 @@ public class GameDbContext : DbContext
             entity.HasIndex(e => e.CreatedAt);
             entity.Property(e => e.CreatedAt).HasDefaultValueSql("NOW()");
             entity.Property(e => e.LastRetryAt).HasDefaultValueSql("NOW()");
-            
-            // Configure RegistrationResultEntity as owned type
-            entity.OwnsOne(e => e.LastResult, result =>
-            {
-                result.Property(r => r.IsSuccess).HasColumnName("LastResult_IsSuccess");
-                result.Property(r => r.FailureReason).HasColumnName("LastResult_FailureReason");
-                result.Property(r => r.ErrorMessage).HasColumnName("LastResult_ErrorMessage");
-            });
         });
     }
 }

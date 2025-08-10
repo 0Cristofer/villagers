@@ -6,7 +6,7 @@ public class WorldPersistenceBackgroundService : BackgroundService, IWorldPersis
 {
     private readonly ILogger<WorldPersistenceBackgroundService> _logger;
     private readonly IServiceScopeFactory _serviceScopeFactory;
-    private readonly object _lock = new object();
+    private readonly object _lock = new();
     private WorldSnapshot? _pendingWorldSnapshot;
 
     public WorldPersistenceBackgroundService(

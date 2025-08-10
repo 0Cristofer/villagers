@@ -1,6 +1,4 @@
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Options;
-using Villagers.GameServer.Configuration;
 using Villagers.GameServer.Domain;
 using Villagers.GameServer.Infrastructure.Data;
 using Villagers.GameServer.Infrastructure.Extensions;
@@ -11,24 +9,17 @@ namespace Villagers.GameServer.Infrastructure.Repositories;
 public class WorldRepository : IWorldRepository
 {
     private readonly GameDbContext _context;
-    private readonly WorldConfiguration _worldConfig;
 
-    public WorldRepository(GameDbContext context, IOptions<WorldConfiguration> worldConfig)
+    public WorldRepository(GameDbContext context)
     {
         _context = context;
-        _worldConfig = worldConfig.Value;
     }
 
     public async Task<World?> GetCurrentWorldAsync()
     {
         var worldEntity = await _context.WorldStates.FirstOrDefaultAsync();
         
-        if (worldEntity == null)
-        {
-            return null;
-        }
-        
-        return worldEntity.ToDomain();
+        return worldEntity?.ToDomain();
     }
 
     public async Task SaveWorldStateAsync(WorldSnapshot worldSnapshot)

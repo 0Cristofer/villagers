@@ -1,8 +1,6 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
-using Villagers.Api.Entities;
 using Villagers.Api.Extensions;
 using Villagers.Api.Models;
 using Villagers.Api.Services;
@@ -13,20 +11,17 @@ namespace Villagers.Api.Controllers;
 [Route("api/[controller]")]
 public class AuthController : ControllerBase
 {
-    private readonly UserManager<PlayerEntity> _userManager;
-    private readonly SignInManager<PlayerEntity> _signInManager;
-    private readonly IJwtService _jwtService;
+    private readonly IPlayerAuthenticationService _authService;
+    private readonly IPlayerService _playerService;
     private readonly ILogger<AuthController> _logger;
 
     public AuthController(
-        UserManager<PlayerEntity> userManager,
-        SignInManager<PlayerEntity> signInManager,
-        IJwtService jwtService,
+        IPlayerAuthenticationService authService,
+        IPlayerService playerService,
         ILogger<AuthController> logger)
     {
-        _userManager = userManager;
-        _signInManager = signInManager;
-        _jwtService = jwtService;
+        _authService = authService;
+        _playerService = playerService;
         _logger = logger;
     }
 
@@ -38,34 +33,24 @@ public class AuthController : ControllerBase
             return BadRequest(ModelState);
         }
 
-        // Create domain object first
-        var domainPlayer = new Domain.Player(Guid.NewGuid(), request.Username);
-        
-        // Convert to entity for persistence
-        var playerEntity = domainPlayer.ToEntity();
-
-        var result = await _userManager.CreateAsync(playerEntity, request.Password);
-
-        if (!result.Succeeded)
+        try
         {
-            foreach (var error in result.Errors)
+            var authenticatedPlayer = await _authService.RegisterAsync(request.Username, request.Password);
+            
+            _logger.LogInformation("User {Username} registered successfully", request.Username);
+
+            return Ok(new AuthResponse
             {
-                ModelState.AddModelError(string.Empty, error.Description);
-            }
+                Token = authenticatedPlayer.Token.Token,
+                Player = authenticatedPlayer.Player.ToModel(),
+                ExpiresAt = authenticatedPlayer.Token.ExpiresAt
+            });
+        }
+        catch (InvalidOperationException ex)
+        {
+            ModelState.AddModelError(string.Empty, ex.Message);
             return BadRequest(ModelState);
         }
-
-        _logger.LogInformation("User {Username} registered successfully", request.Username);
-
-        var token = _jwtService.GenerateToken(domainPlayer);
-        var expiresAt = _jwtService.GetTokenExpiration();
-
-        return Ok(new AuthResponse
-        {
-            Token = token,
-            Player = domainPlayer.ToModel(),
-            ExpiresAt = expiresAt
-        });
     }
 
     [HttpPost("login")]
@@ -76,31 +61,19 @@ public class AuthController : ControllerBase
             return BadRequest(ModelState);
         }
 
-        var playerEntity = await _userManager.FindByNameAsync(request.Username);
-        if (playerEntity == null)
-        {
-            return Unauthorized("Invalid username or password");
-        }
-
-        var result = await _signInManager.CheckPasswordSignInAsync(playerEntity, request.Password, false);
-        if (!result.Succeeded)
+        var authenticatedPlayer = await _authService.LoginAsync(request.Username, request.Password);
+        if (authenticatedPlayer == null)
         {
             return Unauthorized("Invalid username or password");
         }
 
         _logger.LogInformation("User {Username} logged in successfully", request.Username);
 
-        // Convert entity to domain for business logic
-        var domainPlayer = playerEntity.ToDomain();
-
-        var token = _jwtService.GenerateToken(domainPlayer);
-        var expiresAt = _jwtService.GetTokenExpiration();
-
         return Ok(new AuthResponse
         {
-            Token = token,
-            Player = domainPlayer.ToModel(),
-            ExpiresAt = expiresAt
+            Token = authenticatedPlayer.Token.Token,
+            Player = authenticatedPlayer.Player.ToModel(),
+            ExpiresAt = authenticatedPlayer.Token.ExpiresAt
         });
     }
 
@@ -114,13 +87,12 @@ public class AuthController : ControllerBase
             return Unauthorized("Invalid token claims");
         }
 
-        var playerEntity = await _userManager.FindByIdAsync(playerId.ToString());
-        if (playerEntity == null)
+        var domainPlayer = await _playerService.GetByIdAsync(playerId);
+        if (domainPlayer == null)
         {
             return Unauthorized("User no longer exists");
         }
 
-        var domainPlayer = playerEntity.ToDomain();
         return Ok(new { 
             Valid = true, 
             Player = domainPlayer.ToModel() 
@@ -137,23 +109,19 @@ public class AuthController : ControllerBase
             return Unauthorized("Invalid token claims");
         }
 
-        var playerEntity = await _userManager.FindByIdAsync(playerId.ToString());
-        if (playerEntity == null)
+        var authenticatedPlayer = await _authService.RefreshTokenAsync(playerId);
+        if (authenticatedPlayer == null)
         {
             return Unauthorized("User no longer exists");
         }
 
-        _logger.LogInformation("Token refreshed for user {Username}", playerEntity.UserName);
-
-        var domainPlayer = playerEntity.ToDomain();
-        var newToken = _jwtService.GenerateToken(domainPlayer);
-        var expiresAt = _jwtService.GetTokenExpiration();
+        _logger.LogInformation("Token refreshed for user {Username}", authenticatedPlayer.Player.Username);
 
         return Ok(new AuthResponse
         {
-            Token = newToken,
-            Player = domainPlayer.ToModel(),
-            ExpiresAt = expiresAt
+            Token = authenticatedPlayer.Token.Token,
+            Player = authenticatedPlayer.Player.ToModel(),
+            ExpiresAt = authenticatedPlayer.Token.ExpiresAt
         });
     }
 }

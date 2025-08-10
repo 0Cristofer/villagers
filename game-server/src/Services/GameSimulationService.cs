@@ -5,6 +5,7 @@ using Villagers.GameServer.Domain;
 using Villagers.GameServer.Domain.Commands;
 using Villagers.GameServer.Domain.Commands.Requests;
 using Villagers.GameServer.Extensions;
+using Villagers.GameServer.Hubs;
 using Villagers.GameServer.Interfaces;
 
 namespace Villagers.GameServer.Services;
@@ -13,13 +14,14 @@ public class GameSimulationService : BackgroundService, IGameSimulationService
 {
     private readonly ILogger<GameSimulationService> _logger;
     private readonly IHubContext<GameHub, IGameClient> _hubContext;
-    private World _world;
     private readonly IWorldRegistrationService _worldRegistrationService;
     private readonly IServiceScopeFactory _serviceScopeFactory;
     private readonly IWorldPersistenceBackgroundService _worldPersistenceService;
+    
+    private World _world;
     private readonly WorldConfiguration _worldConfig;
     private DateTime _lastSaveTimestamp = DateTime.MinValue;
-    private bool _worldIsCorrupted = false;
+    private bool _worldIsCorrupted;
 
     public GameSimulationService(
         ILogger<GameSimulationService> logger, 
@@ -42,11 +44,11 @@ public class GameSimulationService : BackgroundService, IGameSimulationService
 
     public override async Task StartAsync(CancellationToken cancellationToken)
     {
-        await InitializeWorldAsync(cancellationToken);
+        await InitializeWorldAsync();
         await base.StartAsync(cancellationToken);
     }
 
-    private async Task InitializeWorldAsync(CancellationToken cancellationToken)
+    private async Task InitializeWorldAsync()
     {
         using var scope = _serviceScopeFactory.CreateScope();
         var gamePersistenceService = scope.ServiceProvider.GetRequiredService<IGamePersistenceService>();
@@ -60,7 +62,7 @@ public class GameSimulationService : BackgroundService, IGameSimulationService
             _world = persistedWorld;
             
             // Replay persisted commands using the persisted configuration
-            await ReplayPersistedCommandsAsync(gamePersistenceService, cancellationToken);
+            await ReplayPersistedCommandsAsync(gamePersistenceService);
             
             // After command replay is complete, update to current configuration
             var currentConfig = _worldConfig.ToDomain();
@@ -71,12 +73,11 @@ public class GameSimulationService : BackgroundService, IGameSimulationService
         {
             _logger.LogInformation("No persisted world found, creating new world");
             var config = _worldConfig.ToDomain();
-            var commandQueue = new CommandQueue();
-            _world = new World(config, commandQueue);
+            _world = new World(config);
         }
     }
 
-    private async Task ReplayPersistedCommandsAsync(IGamePersistenceService gamePersistenceService, CancellationToken cancellationToken)
+    private async Task ReplayPersistedCommandsAsync(IGamePersistenceService gamePersistenceService)
     {
         var commandGroups = await gamePersistenceService.GetPersistedCommandsAsync();
         
@@ -95,8 +96,8 @@ public class GameSimulationService : BackgroundService, IGameSimulationService
                 _world.EnqueueExistingCommand(command);
             }
             
-            // Run one tick to process this group of commands (skip delay for fast replay)
-            await _world.Run(1, true, cancellationToken);
+            // Run one tick to process this group of commands
+            _world.Tick();
         }
         
         _logger.LogInformation("Command replay complete. World is now at tick {TickNumber}", _world.GetCurrentTickNumber());
@@ -205,17 +206,7 @@ public class GameSimulationService : BackgroundService, IGameSimulationService
     {
         return _world.Id;
     }
-
-    public int GetCurrentTickNumber()
-    {
-        return _world.GetCurrentTickNumber();
-    }
-
-    public int GetNextTickNumber()
-    {
-        return _world.GetNextTickNumber();
-    }
-
+    
     public bool IsPlayerRegistered(Guid playerId)
     {
         // TODO: implement proper check to see if player is registered in the world
@@ -230,19 +221,14 @@ public class GameSimulationService : BackgroundService, IGameSimulationService
         // Broadcast world state to all connected clients
         await _hubContext.Clients.All.WorldUpdate(world.ToDto());
         
+        var timeSinceLastSave = DateTime.UtcNow - _lastSaveTimestamp;
+        
         // Check if we should save the world state (only if not corrupted)
-        if (ShouldSaveWorld() && !_worldIsCorrupted)
+        if (timeSinceLastSave >= _worldConfig.SaveInterval && !_worldIsCorrupted)
         {
             var worldSnapshot = new WorldSnapshot(_world);
             _worldPersistenceService.EnqueueWorldForSave(worldSnapshot);
             _lastSaveTimestamp = DateTime.UtcNow;
         }
     }
-    
-    private bool ShouldSaveWorld()
-    {
-        var timeSinceLastSave = DateTime.UtcNow - _lastSaveTimestamp;
-        return timeSinceLastSave >= _worldConfig.SaveInterval;
-    }
-
 }

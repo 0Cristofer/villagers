@@ -1,3 +1,5 @@
+// ReSharper disable UnusedAutoPropertyAccessor.Global
+
 namespace Villagers.GameServer.Models;
 
 public class RegisterWorldRequest

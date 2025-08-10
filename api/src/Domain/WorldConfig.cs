@@ -2,8 +2,8 @@ namespace Villagers.Api.Domain;
 
 public class WorldConfig
 {
-    public string WorldName { get; private set; }
-    public TimeSpan TickInterval { get; private set; }
+    public string WorldName { get;  }
+    public TimeSpan TickInterval { get; }
 
     public WorldConfig(string worldName, TimeSpan tickInterval)
     {

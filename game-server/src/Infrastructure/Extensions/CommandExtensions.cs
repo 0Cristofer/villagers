@@ -18,12 +18,13 @@ public static class CommandExtensions
         };
     }
 
-    public static ICommand? ToDomain(this CommandEntity entity)
+    public static ICommand ToDomain(this CommandEntity entity)
     {
         return entity.Type switch
         {
-            nameof(TestCommand) => JsonSerializer.Deserialize<TestCommand>(entity.Payload),
-            _ => null
+            nameof(TestCommand) => JsonSerializer.Deserialize<TestCommand>(entity.Payload)!,
+            nameof(RegisterPlayerCommand) => JsonSerializer.Deserialize<RegisterPlayerCommand>(entity.Payload)!,
+            _ => throw new InvalidOperationException("Invalid command type")
         };
     }
 }

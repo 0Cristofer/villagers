@@ -35,13 +35,14 @@ namespace Villagers.GameServer.Migrations
 
                     b.Property<string>("Payload")
                         .IsRequired()
+                        .HasMaxLength(1000)
                         .HasColumnType("jsonb");
 
                     b.Property<Guid>("PlayerId")
                         .HasColumnType("uuid");
 
-                    b.Property<int>("TickNumber")
-                        .HasColumnType("integer");
+                    b.Property<long>("TickNumber")
+                        .HasColumnType("bigint");
 
                     b.Property<string>("Type")
                         .IsRequired()
@@ -118,16 +119,14 @@ namespace Villagers.GameServer.Migrations
                                 .HasColumnType("uuid");
 
                             b1.Property<string>("ErrorMessage")
-                                .HasColumnType("text")
-                                .HasColumnName("LastResult_ErrorMessage");
+                                .HasMaxLength(1000)
+                                .HasColumnType("character varying(1000)");
 
                             b1.Property<int>("FailureReason")
-                                .HasColumnType("integer")
-                                .HasColumnName("LastResult_FailureReason");
+                                .HasColumnType("integer");
 
                             b1.Property<bool>("IsSuccess")
-                                .HasColumnType("boolean")
-                                .HasColumnName("LastResult_IsSuccess");
+                                .HasColumnType("boolean");
 
                             b1.HasKey("RegistrationIntentEntityId");
 
@@ -152,7 +151,8 @@ namespace Villagers.GameServer.Migrations
 
                             b1.Property<string>("WorldName")
                                 .IsRequired()
-                                .HasColumnType("text");
+                                .HasMaxLength(100)
+                                .HasColumnType("character varying(100)");
 
                             b1.HasKey("WorldEntityId");
 

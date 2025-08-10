@@ -8,7 +8,12 @@ public static class RegistrationResultExtensions
 {
     public static RegistrationResultEntity ToEntity(this RegistrationResult result)
     {
-        return new RegistrationResultEntity(result.IsSuccess, result.FailureReason, result.ErrorMessage);
+        return new RegistrationResultEntity
+        {
+            IsSuccess = result.IsSuccess,
+            FailureReason = result.FailureReason,
+            ErrorMessage = result.ErrorMessage
+        };
     }
 
     public static RegistrationResult ToDomain(this RegistrationResultEntity entity)
@@ -16,9 +21,10 @@ public static class RegistrationResultExtensions
         return entity.FailureReason switch
         {
             RegistrationFailureReason.None => RegistrationResult.Success(new CompletedCommand()),
-            RegistrationFailureReason.GameCommandEnqueueFailed => RegistrationResult.GameCommandFailure(entity.ErrorMessage ?? "Unknown error"),
-            RegistrationFailureReason.ApiRegistrationFailed => RegistrationResult.ApiFailure(entity.ErrorMessage ?? "API failure", new CompletedCommand()),
-            RegistrationFailureReason.UnknownError => RegistrationResult.UnknownFailure(entity.ErrorMessage ?? "Unknown error"),
+            RegistrationFailureReason.GameCommandEnqueueFailed => RegistrationResult.GameCommandFailure(
+                entity.ErrorMessage ?? "Unknown error"),
+            RegistrationFailureReason.ApiRegistrationFailed => RegistrationResult.ApiFailure(
+                entity.ErrorMessage ?? "API failure", new CompletedCommand()),
             _ => RegistrationResult.UnknownFailure(entity.ErrorMessage ?? "Unknown error")
         };
     }

@@ -15,6 +15,7 @@ public class RegistrationIntent
     private bool _isProcessing;
     private int _retryCount;
     private TaskCompletionSource<RegistrationResult>? _processingCompletion;
+    
     public RegistrationIntent(Guid playerId, StartingDirection startingDirection)
         : this(Guid.NewGuid(), playerId, startingDirection, DateTime.UtcNow, DateTime.UtcNow, 0, null)
     {

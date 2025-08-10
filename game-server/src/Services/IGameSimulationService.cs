@@ -7,7 +7,5 @@ public interface IGameSimulationService : IHostedService
 {
     Task<ICommand> ProcessCommandRequest(ICommandRequest request);
     Guid GetWorldId();
-    int GetCurrentTickNumber();
-    int GetNextTickNumber();
     bool IsPlayerRegistered(Guid playerId);
 }
