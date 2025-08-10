@@ -93,17 +93,29 @@ public class World
         
         foreach (var command in commands)
         {
-            switch (command)
+            try
             {
-                case TestCommand testCmd:
-                    ProcessTestCommand(testCmd);
-                    break;
-                case RegisterPlayerCommand registerCmd:
-                    ProcessRegisterPlayerCommand(registerCmd);
-                    break;
-                default:
-                    Console.WriteLine($"Unknown command type: {command.GetType().Name} from player {command.PlayerId}");
-                    break;
+                switch (command)
+                {
+                    case TestCommand testCmd:
+                        ProcessTestCommand(testCmd);
+                        break;
+                    case RegisterPlayerCommand registerCmd:
+                        ProcessRegisterPlayerCommand(registerCmd);
+                        break;
+                    default:
+                        Console.WriteLine($"Unknown command type: {command.GetType().Name} from player {command.PlayerId}");
+                        throw new NotSupportedException($"Command type {command.GetType().Name} is not supported");
+                }
+                
+                // Mark command as completed after successful processing
+                command.MarkCompleted();
+            }
+            catch (Exception ex)
+            {
+                // Mark command as failed and rethrow - this is a critical failure
+                command.MarkFailed(ex);
+                throw;
             }
         }
     }
@@ -132,11 +144,12 @@ public class World
         {
             // Get next tick and create command atomically
             var nextTick = TickNumber + 1;
+            var timeout = Config.TickInterval * 3; // Enough time to finish this tick and start the next one
             
             ICommand command = request switch
             {
-                TestCommandRequest testRequest => new TestCommand(testRequest.PlayerId, testRequest.Message, nextTick),
-                RegisterPlayerCommandRequest registerRequest => new RegisterPlayerCommand(registerRequest.PlayerId, registerRequest.StartingDirection, nextTick),
+                TestCommandRequest testRequest => new TestCommand(testRequest.PlayerId, testRequest.Message, nextTick, timeout),
+                RegisterPlayerCommandRequest registerRequest => new RegisterPlayerCommand(registerRequest.PlayerId, registerRequest.StartingDirection, nextTick, timeout),
                 _ => throw new NotSupportedException($"Command request type {request.GetType().Name} is not supported")
             };
             

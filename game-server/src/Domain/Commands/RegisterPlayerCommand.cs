@@ -2,14 +2,15 @@ using Villagers.GameServer.Domain.Enums;
 
 namespace Villagers.GameServer.Domain.Commands;
 
-public class RegisterPlayerCommand : ICommand
+public class RegisterPlayerCommand : BaseCommand
 {
-    public Guid PlayerId { get; }
+    public override Guid PlayerId { get; }
     public StartingDirection StartingDirection { get; }
-    public DateTime Timestamp { get; }
-    public int TickNumber { get; }
+    public override DateTime Timestamp { get; }
+    public override int TickNumber { get; }
 
-    public RegisterPlayerCommand(Guid playerId, StartingDirection startingDirection, int tickNumber)
+    public RegisterPlayerCommand(Guid playerId, StartingDirection startingDirection, int tickNumber, TimeSpan timeout)
+        : base(timeout)
     {
         if (playerId == Guid.Empty)
             throw new ArgumentException("Player ID cannot be empty", nameof(playerId));

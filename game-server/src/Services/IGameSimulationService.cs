@@ -5,8 +5,9 @@ namespace Villagers.GameServer.Services;
 
 public interface IGameSimulationService : IHostedService
 {
-    Task ProcessCommandRequest(ICommandRequest request);
+    Task<ICommand> ProcessCommandRequest(ICommandRequest request);
     Guid GetWorldId();
     int GetCurrentTickNumber();
     int GetNextTickNumber();
+    bool IsPlayerRegistered(Guid playerId);
 }

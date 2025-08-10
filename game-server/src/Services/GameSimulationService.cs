@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Options;
 using Villagers.GameServer.Configuration;
 using Villagers.GameServer.Domain;
+using Villagers.GameServer.Domain.Commands;
 using Villagers.GameServer.Domain.Commands.Requests;
 using Villagers.GameServer.Extensions;
 using Villagers.GameServer.Interfaces;
@@ -163,7 +164,7 @@ public class GameSimulationService : BackgroundService, IGameSimulationService
         _logger.LogInformation("Game Simulation Service stopped");
     }
 
-    public async Task ProcessCommandRequest(ICommandRequest request)
+    public async Task<ICommand> ProcessCommandRequest(ICommandRequest request)
     {
         if (_worldIsCorrupted)
         {
@@ -188,13 +189,16 @@ public class GameSimulationService : BackgroundService, IGameSimulationService
         var command = _world.EnqueueCommand(request);
         
         // Persist the command - if this fails, the command is already enqueued but will be lost on crash
-        // This is acceptable as the command hasn't been processed yet
+        // This is acceptable for now, but can only be fixed with completely atomic processing (from enqueue to
+        // persistence). Right now, there's a gap between enqueuing and persistence
         using var scope = _serviceScopeFactory.CreateScope();
         var gamePersistenceService = scope.ServiceProvider.GetRequiredService<IGamePersistenceService>();
         
         await gamePersistenceService.SaveCommandAsync(command);
         _logger.LogDebug("Persisted command {CommandType} from player {PlayerId} for tick {TickNumber}", 
             command.GetType().Name, command.PlayerId, command.TickNumber);
+        
+        return command;
     }
 
     public Guid GetWorldId()
@@ -210,6 +214,13 @@ public class GameSimulationService : BackgroundService, IGameSimulationService
     public int GetNextTickNumber()
     {
         return _world.GetNextTickNumber();
+    }
+
+    public bool IsPlayerRegistered(Guid playerId)
+    {
+        // TODO: implement proper check to see if player is registered in the world
+        // This should check the world's registered players list
+        return false;
     }
 
     private async Task OnWorldTick(World world)
