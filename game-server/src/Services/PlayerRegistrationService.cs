@@ -67,7 +67,7 @@ public class PlayerRegistrationService : BackgroundService, IPlayerRegistrationS
         // Check if player already has a registration intent
         if (_pendingIntents.ContainsKey(playerId))
         {
-            throw new InvalidOperationException($"Player {playerId} already has a registration intent. Use TryContinueRegister to continue existing registration.");
+            throw new InvalidOperationException($"Player {playerId} already has a registration intent. Use TryLogin to continue existing registration.");
         }
 
         // Check if player is already registered in the world
@@ -222,6 +222,7 @@ public class PlayerRegistrationService : BackgroundService, IPlayerRegistrationS
             }
             catch (Exception apiEx)
             {
+                // TODO: Better handle api errors for forbidden registrations or other errors that aren't just connection issues
                 // Game command was enqueued successfully, so we include it in the result
                 // The API failure will be retried in the background
                 var result = RegistrationResult.ApiFailure(apiEx.Message, command);

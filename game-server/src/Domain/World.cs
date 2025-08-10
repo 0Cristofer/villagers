@@ -144,7 +144,7 @@ public class World
         {
             // Get next tick and create command atomically
             var nextTick = TickNumber + 1;
-            var timeout = TimeSpan.FromMilliseconds(Config.TickInterval.TotalMilliseconds * 2);
+            var timeout = Config.TickInterval * 3; // Enough time to finish this tick and start the next one
             
             ICommand command = request switch
             {

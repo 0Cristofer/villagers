@@ -28,11 +28,13 @@ public abstract class BaseCommand : ICommand
     {
         _completion.SetResult(true);
         _timeoutCancellation.Cancel();
+        _timeoutCancellation.Dispose();
     }
 
     public void MarkFailed(Exception exception)
     {
         _completion.SetException(exception);
         _timeoutCancellation.Cancel();
+        _timeoutCancellation.Dispose();
     }
 }

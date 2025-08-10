@@ -43,14 +43,22 @@ public class GameHub : Hub<IGameClient>
     }
 
     [Authorize]
-    public async Task<bool> TryContinueRegister(Guid playerId)
+    public async Task<bool> TryLogin(Guid playerId)
     {
-        _logger.LogInformation("Player {PlayerId} checking for existing registration", playerId);
+        _logger.LogInformation("Player {PlayerId} attempting to login", playerId);
         
+        // Check if player is already in the world
+        if (_gameService.IsPlayerRegistered(playerId))
+        {
+            _logger.LogDebug("Player {PlayerId} already registered in world", playerId);
+            return true;
+        }
+        
+        // Check for existing registration intent
         var existingResult = await _playerRegistrationService.GetExistingRegistrationAsync(playerId);
         if (existingResult == null)
         {
-            _logger.LogDebug("No existing registration found for player {PlayerId}", playerId);
+            _logger.LogDebug("No existing registration found for player {PlayerId} and not in world", playerId);
             return false;
         }
         
@@ -70,6 +78,7 @@ public class GameHub : Hub<IGameClient>
         }
         catch (InvalidOperationException ex)
         {
+            // TODO: return a better result so frontend can decide if it should retry the register or call TryLogin
             _logger.LogWarning("Duplicate registration attempt for player {PlayerId}: {Message}", playerId, ex.Message);
             throw new HubException("Player already has a registration in progress. Please wait for it to complete.");
         }

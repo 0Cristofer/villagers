@@ -243,16 +243,16 @@ function App() {
         connectionRefs.current.set(worldKey, connection);
       }
 
-      // First try to continue any existing registration
-      const canContinue: boolean = await connection.invoke(GameHubMethods.TryContinueRegister, player.id);
+      // First try to login to any existing registration
+      const canLogin: boolean = await connection.invoke(GameHubMethods.TryLogin, player.id);
       
-      if (canContinue) {
-        // Existing registration was found and processed successfully
-        console.log(`Successfully continued registration for world ${world.config.worldName}`);
+      if (canLogin) {
+        // Player successfully logged in (either existing registration or already in world)
+        console.log(`Successfully logged into world ${world.config.worldName}`);
         setShowGamePage(true);
       } else {
-        // No existing registration found, show direction selection
-        console.log(`No existing registration found for world ${world.config.worldName}, showing direction selection`);
+        // Player not found in world and no registration in progress, show direction selection
+        console.log(`Player not found in world ${world.config.worldName}, showing direction selection`);
         setShowDirectionSelection(true);
       }
       
@@ -310,9 +310,48 @@ function App() {
     }
   };
 
-  const enterWorld = (world: WorldResponse) => {
+  const enterWorld = async (world: WorldResponse) => {
+    if (!player) return;
+    
+    const worldKey = world.worldId;
+    setRegistrationLoading(prev => new Set([...prev, worldKey]));
     setSelectedWorld(world);
-    setShowGamePage(true);
+    setError('');
+    
+    try {
+      // Create or get existing connection for this world
+      let connection = connectionRefs.current.get(worldKey);
+      
+      if (!connection) {
+        connection = await createHubConnection(world);
+        if (!connection) {
+          throw new Error('Failed to establish SignalR connection');
+        }
+        connectionRefs.current.set(worldKey, connection);
+      }
+
+      // Try to login to the world
+      const canLogin: boolean = await connection.invoke(GameHubMethods.TryLogin, player.id);
+      
+      if (canLogin) {
+        // Player successfully logged in
+        console.log(`Successfully logged into world ${world.config.worldName}`);
+        setShowGamePage(true);
+      } else {
+        // Player not found in world
+        setError(`Player not found in ${world.config.worldName}. Please join the world first.`);
+      }
+      
+    } catch (error) {
+      console.error(`Failed to enter world ${world.config.worldName}:`, error);
+      setError(`Failed to enter ${world.config.worldName}. Please try again.`);
+    } finally {
+      setRegistrationLoading(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(worldKey);
+        return newSet;
+      });
+    }
   };
 
   const backToWorldSelection = () => {
@@ -430,8 +469,9 @@ function App() {
                     <button 
                       className="enter-world-button"
                       onClick={() => enterWorld(world)}
+                      disabled={registrationLoading.has(world.worldId)}
                     >
-                      Join World
+                      {registrationLoading.has(world.worldId) ? 'Entering...' : 'Join World'}
                     </button>
                   </div>
                 ))}
