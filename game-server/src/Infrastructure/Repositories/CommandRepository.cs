@@ -20,17 +20,7 @@ public class CommandRepository : ICommandRepository
             .OrderBy(c => c.CreatedAt)
             .ToListAsync();
             
-        return entities.Select(e => e.ToDomain()).Where(c => c != null).Cast<ICommand>();
-    }
-
-    public async Task<IEnumerable<ICommand>> GetCommandsOrderedByTickAndTimestampAsync()
-    {
-        var entities = await _context.Commands
-            .OrderBy(c => c.TickNumber)
-            .ThenBy(c => c.CreatedAt)
-            .ToListAsync();
-            
-        return entities.Select(e => e.ToDomain()).Where(c => c != null).Cast<ICommand>();
+        return entities.Select(e => e.ToDomain());
     }
 
     public async Task<List<List<ICommand>>> GetCommandsGroupedByTickAsync()
@@ -51,8 +41,6 @@ public class CommandRepository : ICommandRepository
         {
             var tickCommands = group.Commands
                 .Select(e => e.ToDomain())
-                .Where(c => c != null)
-                .Cast<ICommand>()
                 .ToList();
                 
             if (tickCommands.Count > 0)
@@ -71,17 +59,7 @@ public class CommandRepository : ICommandRepository
         await _context.SaveChangesAsync();
     }
 
-    public async Task DeleteCommandAsync(Guid id)
-    {
-        var command = await _context.Commands.FindAsync(id);
-        if (command != null)
-        {
-            _context.Commands.Remove(command);
-            await _context.SaveChangesAsync();
-        }
-    }
-
-    public async Task DeleteCommandsBeforeTickAsync(int tickNumber)
+    public async Task DeleteCommandsBeforeTickAsync(long tickNumber)
     {
         // Delete all commands with tick number less than the specified tick
         var commandsToDelete = _context.Commands

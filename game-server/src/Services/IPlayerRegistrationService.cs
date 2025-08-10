@@ -5,7 +5,6 @@ namespace Villagers.GameServer.Services;
 
 public interface IPlayerRegistrationService
 {
-    Task RegisterPlayerForWorldAsync(Guid playerId, Guid worldId);
     Task<RegistrationResult> RegisterPlayerAsync(Guid playerId, StartingDirection startingDirection);
     Task<RegistrationResult?> GetExistingRegistrationAsync(Guid playerId);
 }

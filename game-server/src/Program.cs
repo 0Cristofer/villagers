@@ -1,5 +1,6 @@
 using Villagers.GameServer;
 using Villagers.GameServer.Extensions;
+using Villagers.GameServer.Hubs;
 
 var builder = WebApplication.CreateBuilder(args);
 

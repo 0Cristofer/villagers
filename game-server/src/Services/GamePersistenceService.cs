@@ -15,7 +15,6 @@ public class GamePersistenceService : IGamePersistenceService
         _commandRepository = commandRepository;
     }
 
-
     public async Task<World?> GetWorldAsync()
     {
         return await _worldRepository.GetCurrentWorldAsync();

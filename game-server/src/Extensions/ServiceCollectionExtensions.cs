@@ -87,28 +87,24 @@ public static class ServiceCollectionExtensions
         // Add HTTP client for API communication
         services.AddHttpClient();
         
-        // Add world registration service
         services.AddSingleton<IWorldRegistrationService, WorldRegistrationService>();
         
-        // Add unified player registration service (with background processing)
         services.AddSingleton<IPlayerRegistrationService, PlayerRegistrationService>();
         services.AddHostedService(provider => 
             (PlayerRegistrationService)provider.GetRequiredService<IPlayerRegistrationService>());
         
-        // Add game persistence service
         services.AddScoped<IGamePersistenceService, GamePersistenceService>();
         
-        // Add background persistence service
         services.AddSingleton<IWorldPersistenceBackgroundService, WorldPersistenceBackgroundService>();
         services.AddHostedService(provider => 
             provider.GetRequiredService<IWorldPersistenceBackgroundService>());
-        
-        
-        services.AddSignalR();
+
         services.AddSingleton<IGameSimulationService, GameSimulationService>();
         services.AddHostedService(provider => 
             provider.GetRequiredService<IGameSimulationService>());
         
+        services.AddSignalR();
+
         return services;
     }
 

@@ -1,3 +1,5 @@
+// ReSharper disable PropertyCanBeMadeInitOnly.Global
+
 using System.ComponentModel.DataAnnotations;
 
 namespace Villagers.GameServer.Entities;
@@ -7,10 +9,9 @@ public class WorldEntity
     [Key]
     public Guid Id { get; set; }
     
-    public long TickNumber { get; set; } = 0;
+    public long TickNumber { get; set; }
     
-    // Embedded configuration to ensure simulation consistency
-    public WorldConfigEntity Config { get; set; } = new WorldConfigEntity();
+    public WorldConfigEntity Config { get; set; } = new();
     
     public DateTime LastUpdated { get; set; } = DateTime.UtcNow;
 }

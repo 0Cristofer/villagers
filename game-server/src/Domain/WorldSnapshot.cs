@@ -1,6 +1,4 @@
-using Villagers.GameServer.Domain;
-
-namespace Villagers.GameServer.Services;
+namespace Villagers.GameServer.Domain;
 
 /// <summary>
 /// Immutable snapshot containing only the data needed for world persistence.
@@ -9,7 +7,7 @@ namespace Villagers.GameServer.Services;
 public class WorldSnapshot
 {
     public Guid Id { get; }
-    public int TickNumber { get; }
+    public long TickNumber { get; }
     public WorldConfig Config { get; }
 
     public WorldSnapshot(World world)

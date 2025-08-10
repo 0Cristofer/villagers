@@ -6,7 +6,7 @@ using Villagers.GameServer.Domain.Enums;
 using Villagers.GameServer.Interfaces;
 using Villagers.GameServer.Services;
 
-namespace Villagers.GameServer;
+namespace Villagers.GameServer.Hubs;
 
 public class GameHub : Hub<IGameClient>
 {

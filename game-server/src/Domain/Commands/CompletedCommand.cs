@@ -2,16 +2,9 @@ namespace Villagers.GameServer.Domain.Commands;
 
 public class CompletedCommand : ICommand
 {
-    public Guid PlayerId { get; }
-    public DateTime Timestamp { get; }
-    public int TickNumber { get; }
-    
-    public CompletedCommand()
-    {
-        PlayerId = Guid.Empty;
-        Timestamp = DateTime.UtcNow;
-        TickNumber = 0;
-    }
+    public Guid PlayerId => Guid.Empty;
+    public DateTime Timestamp { get; } = DateTime.UtcNow;
+    public long TickNumber => 0;
 
     public Task WaitForCompletionAsync()
     {

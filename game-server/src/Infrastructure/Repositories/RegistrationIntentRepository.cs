@@ -13,28 +13,10 @@ public class RegistrationIntentRepository : IRegistrationIntentRepository
     {
         _context = context;
     }
-
-    public async Task<RegistrationIntent> CreateIntentAsync(RegistrationIntent intent)
-    {
-        var entity = intent.ToEntity();
-        _context.RegistrationIntents.Add(entity);
-        await _context.SaveChangesAsync();
-        return intent;
-    }
-
-    public async Task<RegistrationIntent?> GetPendingIntentAsync(Guid playerId)
-    {
-        var entity = await _context.RegistrationIntents
-            .Where(x => x.PlayerId == playerId && (x.LastResult == null || !x.LastResult.IsSuccess))
-            .FirstOrDefaultAsync();
-
-        return entity?.ToDomain();
-    }
-
+    
     public async Task<List<RegistrationIntent>> GetAllPendingIntentsAsync()
     {
         var entities = await _context.RegistrationIntents
-            .Where(x => x.LastResult == null || !x.LastResult.IsSuccess)
             .OrderBy(x => x.CreatedAt)
             .ToListAsync();
 

@@ -7,23 +7,23 @@ public class World
 {
     public delegate Task WorldTickHandler(World world);
     
-    public Guid Id { get; private set; }
+    public Guid Id { get; }
     public WorldConfig Config { get; private set; }
-    private int TickNumber { get; set; }
+    private long TickNumber { get; set; }
     public string Message { get; private set; } // Temporary test
 
     private readonly CommandQueue _commandQueue;
-    private readonly object _tickLock = new object();
+    private readonly object _tickLock = new();
     private bool _isRunning;
 
     public event WorldTickHandler? TickOccurredEvent;
 
-    public World(WorldConfig config, CommandQueue commandQueue) 
-        : this(Guid.NewGuid(), config, commandQueue, 0)
+    public World(WorldConfig config) 
+        : this(Guid.NewGuid(), config, 0)
     {
     }
 
-    public World(Guid id, WorldConfig config, CommandQueue commandQueue, int tickNumber)
+    public World(Guid id, WorldConfig config, long tickNumber)
     {
         if (id == Guid.Empty)
             throw new ArgumentException("World ID cannot be empty", nameof(id));
@@ -31,53 +31,35 @@ public class World
         Id = id;
         Config = config ?? throw new ArgumentNullException(nameof(config));
         TickNumber = tickNumber;
-        _commandQueue = commandQueue ?? throw new ArgumentNullException(nameof(commandQueue));
+        _commandQueue = new CommandQueue();
         _isRunning = false;
         Message = string.Empty;
     }
 
     public async Task Run(CancellationToken cancellationToken = default)
     {
-        await Run(null, false, cancellationToken);
-    }
-
-    public async Task Run(int? tickCount, bool skipDelay = false, CancellationToken cancellationToken = default)
-    {
         _isRunning = true;
-        int ticksExecuted = 0;
         
         while (_isRunning && !cancellationToken.IsCancellationRequested)
         {
-            // Check if we've reached the desired tick count
-            if (tickCount.HasValue && ticksExecuted >= tickCount.Value)
-            {
-                break;
-            }
-            
             Tick();
-            ticksExecuted++;
-            
-            // Fire tick event to notify subscribers
+
             await (TickOccurredEvent?.Invoke(this) ?? Task.CompletedTask);
             
-            // Only delay if skipDelay is false and we're not done with ticks
-            if (!skipDelay && (!tickCount.HasValue || ticksExecuted < tickCount.Value))
+            try
             {
-                try
-                {
-                    await Task.Delay(Config.TickInterval, cancellationToken);
-                }
-                catch (OperationCanceledException)
-                {
-                    break;
-                }
+                await Task.Delay(Config.TickInterval, cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                break;
             }
         }
         
         _isRunning = false;
     }
 
-    private void Tick()
+    public void Tick()
     {
         ProcessCommands();
         
@@ -133,11 +115,6 @@ public class World
         // For now, just log the registration
     }
 
-    public void Stop()
-    {
-        _isRunning = false;
-    }
-
     public ICommand EnqueueCommand(ICommandRequest request)
     {
         lock (_tickLock)
@@ -177,19 +154,11 @@ public class World
         }
     }
 
-    public int GetCurrentTickNumber()
+    public long GetCurrentTickNumber()
     {
         lock (_tickLock)
         {
             return TickNumber;
-        }
-    }
-
-    public int GetNextTickNumber()
-    {
-        lock (_tickLock)
-        {
-            return TickNumber + 1;
         }
     }
 

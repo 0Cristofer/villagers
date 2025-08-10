@@ -4,7 +4,8 @@ public interface ICommand
 {
     Guid PlayerId { get; }
     DateTime Timestamp { get; }
-    int TickNumber { get; }
+    long TickNumber { get; }
+    
     Task WaitForCompletionAsync();
     void MarkCompleted();
     void MarkFailed(Exception exception);

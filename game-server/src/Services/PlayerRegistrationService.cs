@@ -259,9 +259,7 @@ public class PlayerRegistrationService : BackgroundService, IPlayerRegistrationS
         }
     }
 
-
-    // Legacy interface method for API registration
-    public async Task RegisterPlayerForWorldAsync(Guid playerId, Guid worldId)
+    private async Task RegisterPlayerForWorldAsync(Guid playerId, Guid worldId)
     {
         var apiBaseUrl = _configuration["Api:BaseUrl"];
         var apiKey = _configuration["Api:ApiKey"];
