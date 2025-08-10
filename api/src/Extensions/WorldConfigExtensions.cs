@@ -5,7 +5,7 @@ namespace Villagers.Api.Extensions;
 
 public static class WorldConfigExtensions
 {
-    public static WorldConfig ToDomain(this WorldConfigModel model)
+    private static WorldConfig ToDomain(this WorldConfigModel model)
     {
         return new WorldConfig(model.WorldName, model.TickInterval);
     }

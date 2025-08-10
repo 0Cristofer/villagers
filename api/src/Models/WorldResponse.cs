@@ -1,3 +1,6 @@
+// ReSharper disable PropertyCanBeMadeInitOnly.Global
+// ReSharper disable UnusedAutoPropertyAccessor.Global
+
 namespace Villagers.Api.Models;
 
 public class WorldResponse

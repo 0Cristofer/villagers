@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Villagers.Api.Extensions;
 using Villagers.Api.Models;
 using Villagers.Api.Services;
 
@@ -22,38 +23,30 @@ public class InternalController : ControllerBase
     [HttpPost("worlds/register")]
     public async Task<IActionResult> RegisterWorld([FromBody] RegisterWorldRequest request)
     {
-        // API Key authentication
         if (!IsValidApiKey())
         {
             return Unauthorized("Invalid API key");
         }
 
-        var worldId = await _worldRegistryService.RegisterWorldAsync(request);
-        return Ok(new { Id = worldId });
+        await _worldRegistryService.RegisterWorldAsync(request.ToDomain());
+        return Ok();
     }
 
-    [HttpDelete("worlds/{id}")]
+    [HttpDelete("worlds/{id:guid}")]
     public async Task<IActionResult> UnregisterWorld(Guid id)
     {
-        // API Key authentication
         if (!IsValidApiKey())
         {
             return Unauthorized("Invalid API key");
         }
 
-        var success = await _worldRegistryService.UnregisterWorldAsync(id);
-        if (!success)
-        {
-            return NotFound();
-        }
-
+        await _worldRegistryService.UnregisterWorldAsync(id);
         return NoContent();
     }
 
-    [HttpPost("players/{playerId}/register-world")]
+    [HttpPost("players/{playerId:guid}/register-world")]
     public async Task<IActionResult> RegisterPlayerForWorld(Guid playerId, [FromBody] RegisterPlayerForWorldRequest request)
     {
-        // API Key authentication
         if (!IsValidApiKey())
         {
             return Unauthorized("Invalid API key");

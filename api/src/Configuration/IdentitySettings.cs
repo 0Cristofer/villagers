@@ -1,3 +1,6 @@
+// ReSharper disable AutoPropertyCanBeMadeGetOnly.Global
+// ReSharper disable PropertyCanBeMadeInitOnly.Global
+
 namespace Villagers.Api.Configuration;
 
 public class IdentitySettings

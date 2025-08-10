@@ -1,3 +1,5 @@
+// ReSharper disable PropertyCanBeMadeInitOnly.Global
+
 using Microsoft.AspNetCore.Identity;
 
 namespace Villagers.Api.Entities;

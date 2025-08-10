@@ -6,6 +6,7 @@ using Microsoft.IdentityModel.Tokens;
 using Villagers.Api.Configuration;
 using Villagers.Api.Data;
 using Villagers.Api.Entities;
+using Villagers.Api.Repositories;
 using Villagers.Api.Services;
 
 namespace Villagers.Api.Extensions;
@@ -35,6 +36,7 @@ public static class ServiceCollectionExtensions
             
             // User settings from configuration
             options.User.RequireUniqueEmail = identitySettings.User.RequireUniqueEmail;
+            // ReSharper disable once StringLiteralTypo
             options.User.AllowedUserNameCharacters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._";
         })
         .AddEntityFrameworkStores<ApiDbContext>()
@@ -91,7 +93,10 @@ public static class ServiceCollectionExtensions
     {
         services.AddControllers();
         services.AddScoped<IJwtService, JwtService>();
+        services.AddScoped<IWorldRegistryRepository, WorldRegistryRepository>();
         services.AddScoped<IWorldRegistryService, WorldRegistryService>();
+        services.AddScoped<IPlayerRepository, PlayerRepository>();
+        services.AddScoped<IPlayerAuthenticationService, PlayerAuthenticationService>();
         services.AddScoped<IPlayerService, PlayerService>();
         services.AddEndpointsApiExplorer();
         services.AddSwaggerGen();

@@ -1,3 +1,5 @@
+// ReSharper disable PropertyCanBeMadeInitOnly.Global
+
 namespace Villagers.Api.Models;
 
 public class PlayerModel

@@ -8,7 +8,6 @@ namespace Villagers.Api.Services;
 
 public class JwtService : IJwtService
 {
-    private readonly IConfiguration _configuration;
     private readonly string _secretKey;
     private readonly string _issuer;
     private readonly string _audience;
@@ -16,18 +15,18 @@ public class JwtService : IJwtService
 
     public JwtService(IConfiguration configuration)
     {
-        _configuration = configuration;
-        _secretKey = _configuration["Jwt:SecretKey"] ?? throw new InvalidOperationException("JWT SecretKey not configured");
-        _issuer = _configuration["Jwt:Issuer"] ?? throw new InvalidOperationException("JWT Issuer not configured");
-        _audience = _configuration["Jwt:Audience"] ?? throw new InvalidOperationException("JWT Audience not configured");
-        var expirationConfig = _configuration["Jwt:Expiration"] ?? throw new InvalidOperationException("JWT Expiration not configured");
+        _secretKey = configuration["Jwt:SecretKey"] ?? throw new InvalidOperationException("JWT SecretKey not configured");
+        _issuer = configuration["Jwt:Issuer"] ?? throw new InvalidOperationException("JWT Issuer not configured");
+        _audience = configuration["Jwt:Audience"] ?? throw new InvalidOperationException("JWT Audience not configured");
+        var expirationConfig = configuration["Jwt:Expiration"] ?? throw new InvalidOperationException("JWT Expiration not configured");
         _expiration = TimeSpan.Parse(expirationConfig);
     }
 
-    public string GenerateToken(Player player)
+    public PlayerToken GenerateToken(Player player)
     {
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_secretKey));
         var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+        var expiresAt = DateTime.UtcNow.Add(_expiration);
 
         var claims = new[]
         {
@@ -38,34 +37,11 @@ public class JwtService : IJwtService
             issuer: _issuer,
             audience: _audience,
             claims: claims,
-            expires: DateTime.UtcNow.Add(_expiration),
+            expires: expiresAt,
             signingCredentials: credentials
         );
 
-        return new JwtSecurityTokenHandler().WriteToken(token);
-    }
-
-    public ClaimsPrincipal ValidateToken(string token)
-    {
-        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_secretKey));
-        var tokenHandler = new JwtSecurityTokenHandler();
-
-        var validationParameters = new TokenValidationParameters
-        {
-            ValidateIssuer = true,
-            ValidateAudience = true,
-            ValidateLifetime = true,
-            ValidateIssuerSigningKey = true,
-            ValidIssuer = _issuer,
-            ValidAudience = _audience,
-            IssuerSigningKey = key
-        };
-
-        return tokenHandler.ValidateToken(token, validationParameters, out _);
-    }
-
-    public DateTime GetTokenExpiration()
-    {
-        return DateTime.UtcNow.Add(_expiration);
+        var tokenString = new JwtSecurityTokenHandler().WriteToken(token);
+        return new PlayerToken(tokenString, expiresAt);
     }
 }

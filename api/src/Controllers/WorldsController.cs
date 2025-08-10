@@ -24,7 +24,7 @@ public class WorldsController : ControllerBase
         return Ok(worldResponses);
     }
 
-    [HttpGet("{worldId}")]
+    [HttpGet("{worldId:guid}")]
     public async Task<ActionResult<WorldResponse>> GetWorld(Guid worldId)
     {
         var world = await _worldRegistryService.GetWorldAsync(worldId);

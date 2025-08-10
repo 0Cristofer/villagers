@@ -1,58 +1,34 @@
-using Microsoft.EntityFrameworkCore;
-using Villagers.Api.Data;
 using Villagers.Api.Domain;
-using Villagers.Api.Extensions;
-using Villagers.Api.Models;
+using Villagers.Api.Repositories;
 
 namespace Villagers.Api.Services;
 
 public class WorldRegistryService : IWorldRegistryService
 {
-    private readonly ApiDbContext _context;
+    private readonly IWorldRegistryRepository _worldRegistryRepository;
 
-    public WorldRegistryService(ApiDbContext context)
+    public WorldRegistryService(IWorldRegistryRepository worldRegistryRepository)
     {
-        _context = context;
+        _worldRegistryRepository = worldRegistryRepository;
     }
 
-    public async Task<Guid> RegisterWorldAsync(RegisterWorldRequest request)
+    public async Task RegisterWorldAsync(WorldRegistry request)
     {
-        // Create domain object
-        var worldRegistry = request.ToDomain();
-
-        // Convert to entity and persist
-        var entity = worldRegistry.ToEntity();
-        _context.WorldRegistry.Add(entity);
-        await _context.SaveChangesAsync();
-
-        return worldRegistry.Id;
+        await _worldRegistryRepository.AddAsync(request);
     }
 
-    public async Task<bool> UnregisterWorldAsync(Guid worldId)
+    public async Task UnregisterWorldAsync(Guid worldId)
     {
-        var entity = await _context.WorldRegistry.FirstOrDefaultAsync(w => w.WorldId == worldId);
-        if (entity == null)
-        {
-            return false;
-        }
-
-        _context.WorldRegistry.Remove(entity);
-        await _context.SaveChangesAsync();
-        return true;
+        await _worldRegistryRepository.RemoveAsync(worldId);
     }
 
     public async Task<IEnumerable<WorldRegistry>> GetAllWorldsAsync()
     {
-        var entities = await _context.WorldRegistry
-            .OrderBy(w => w.RegisteredAt)
-            .ToListAsync();
-        
-        return entities.Select(e => e.ToDomain());
+        return await _worldRegistryRepository.GetAllAsync();
     }
 
     public async Task<WorldRegistry?> GetWorldAsync(Guid worldId)
     {
-        var entity = await _context.WorldRegistry.FirstOrDefaultAsync(w => w.WorldId == worldId);
-        return entity?.ToDomain();
+        return await _worldRegistryRepository.GetByIdAsync(worldId);
     }
 }

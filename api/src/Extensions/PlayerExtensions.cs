@@ -5,7 +5,6 @@ namespace Villagers.Api.Extensions;
 
 public static class PlayerExtensions
 {
-    // Domain to Model (ONLY allowed conversion to model)
     public static PlayerModel ToModel(this Domain.Player player)
     {
         return new PlayerModel
@@ -16,7 +15,6 @@ public static class PlayerExtensions
         };
     }
 
-    // Entity to Domain
     public static Domain.Player ToDomain(this PlayerEntity entity)
     {
         return new Domain.Player(
@@ -27,7 +25,6 @@ public static class PlayerExtensions
             entity.UpdatedAt);
     }
 
-    // Domain to Entity (for persistence)
     public static PlayerEntity ToEntity(this Domain.Player player)
     {
         return new PlayerEntity
