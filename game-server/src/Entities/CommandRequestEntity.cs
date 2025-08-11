@@ -4,7 +4,7 @@ using System.ComponentModel.DataAnnotations;
 
 namespace Villagers.GameServer.Entities;
 
-public class CommandEntity
+public class CommandRequestEntity
 {
     [Key]
     public Guid Id { get; set; } = Guid.NewGuid();
@@ -15,7 +15,7 @@ public class CommandEntity
     
     [Required]
     [MaxLength(1000)]
-    public string Payload { get; set; } = string.Empty; // JSON serialized command data
+    public string Payload { get; set; } = string.Empty; // JSON serialized command request data
     
     [Required]
     public Guid PlayerId { get; set; }

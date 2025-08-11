@@ -1,5 +1,5 @@
 using Microsoft.EntityFrameworkCore;
-using Villagers.GameServer.Domain.Commands;
+using Villagers.GameServer.Domain.Commands.Requests;
 using Villagers.GameServer.Infrastructure.Data;
 using Villagers.GameServer.Infrastructure.Extensions;
 
@@ -14,58 +14,52 @@ public class CommandRepository : ICommandRepository
         _context = context;
     }
 
-    public async Task<IEnumerable<ICommand>> GetAllCommandsAsync()
-    {
-        var entities = await _context.Commands
-            .OrderBy(c => c.CreatedAt)
-            .ToListAsync();
-            
-        return entities.Select(e => e.ToDomain());
-    }
-
-    public async Task<List<List<ICommand>>> GetCommandsGroupedByTickAsync()
+    public async Task<List<List<ReplayableCommandRequest>>> GetReplayableCommandRequestsGroupedByTickAsync()
     {
         // Group first, then order groups by tick number, then order within groups by timestamp
-        var groupedEntities = await _context.Commands
+        var groupedEntities = await _context.CommandRequests
             .GroupBy(c => c.TickNumber)
             .OrderBy(g => g.Key) // Order groups by tick number
             .Select(g => new { 
                 TickNumber = g.Key, 
-                Commands = g.OrderBy(c => c.CreatedAt).ToList() // Order within each group by timestamp
+                CommandRequests = g.OrderBy(c => c.CreatedAt).ToList() // Order within each group by timestamp
             })
             .ToListAsync();
 
         // Convert to domain objects and maintain the grouped structure
-        var result = new List<List<ICommand>>();
+        var result = new List<List<ReplayableCommandRequest>>();
         foreach (var group in groupedEntities)
         {
-            var tickCommands = group.Commands
-                .Select(e => e.ToDomain())
+            var tickCommandRequests = group.CommandRequests
+                .Select(e => e.ToReplayableRequest())
                 .ToList();
                 
-            if (tickCommands.Count > 0)
+            if (tickCommandRequests.Count > 0)
             {
-                result.Add(tickCommands);
+                result.Add(tickCommandRequests);
             }
         }
 
         return result;
     }
 
-    public async Task SaveCommandAsync(ICommand command)
+    public async Task SaveCommandRequestAsync(ICommandRequest commandRequest)
     {
-        var entity = command.ToEntity();
-        _context.Commands.Add(entity);
+        if (!commandRequest.ProcessedTickNumber.HasValue)
+            throw new InvalidOperationException("Cannot persist command request without processed tick number");
+
+        var entity = commandRequest.ToEntity();
+        _context.CommandRequests.Add(entity);
         await _context.SaveChangesAsync();
     }
 
-    public async Task DeleteCommandsBeforeTickAsync(long tickNumber)
+    public async Task DeleteCommandRequestsBeforeTickAsync(long tickNumber)
     {
-        // Delete all commands with tick number less than the specified tick
-        var commandsToDelete = _context.Commands
+        // Delete all command requests with tick number less than the specified tick
+        var commandRequestsToDelete = _context.CommandRequests
             .Where(c => c.TickNumber < tickNumber);
             
-        _context.Commands.RemoveRange(commandsToDelete);
+        _context.CommandRequests.RemoveRange(commandRequestsToDelete);
         await _context.SaveChangesAsync();
     }
 }

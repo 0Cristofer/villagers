@@ -10,7 +10,7 @@ public class GameDbContext : DbContext
     }
 
     public DbSet<WorldEntity> WorldStates { get; set; }
-    public DbSet<CommandEntity> Commands { get; set; }
+    public DbSet<CommandRequestEntity> CommandRequests { get; set; }
     public DbSet<RegistrationIntentEntity> RegistrationIntents { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -24,8 +24,8 @@ public class GameDbContext : DbContext
             entity.Property(e => e.LastUpdated).HasDefaultValueSql("NOW()");
         });
 
-        // CommandEntity configuration  
-        modelBuilder.Entity<CommandEntity>(entity =>
+        // CommandRequestEntity configuration  
+        modelBuilder.Entity<CommandRequestEntity>(entity =>
         {
             entity.HasKey(e => e.Id);
             entity.HasIndex(e => e.CreatedAt);

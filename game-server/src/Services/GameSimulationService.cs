@@ -79,28 +79,36 @@ public class GameSimulationService : BackgroundService, IGameSimulationService
 
     private async Task ReplayPersistedCommandsAsync(IGamePersistenceService gamePersistenceService)
     {
-        var commandGroups = await gamePersistenceService.GetPersistedCommandsAsync();
+        var replayableTickGroups = await gamePersistenceService.GetReplayableCommandRequestsAsync();
         
-        if (commandGroups.Count == 0)
+        if (replayableTickGroups.Count == 0)
         {
             return;
         }
         
-        _logger.LogInformation("Replaying {GroupCount} tick groups of persisted commands...", commandGroups.Count);
+        _logger.LogInformation("Replaying {GroupCount} tick groups of persisted command requests...", replayableTickGroups.Count);
         
-        foreach (var tickCommands in commandGroups)
+        foreach (var replayableTickGroup in replayableTickGroups)
         {
-            // Enqueue all commands for this tick (these already have correct tick numbers)
-            foreach (var command in tickCommands)
+            // Re-enqueue each request and verify the tick numbers match
+            foreach (var replayableCommand in replayableTickGroup)
             {
-                _world.EnqueueExistingCommand(command);
+                var command = _world.EnqueueCommand(replayableCommand.Request);
+                
+                // Verify that the replayed request gets assigned the same tick number
+                if (command.TickNumber != replayableCommand.ExpectedTickNumber)
+                {
+                    throw new InvalidOperationException(
+                        $"Replay tick mismatch: Request was originally processed at tick {replayableCommand.ExpectedTickNumber} " +
+                        $"but was assigned tick {command.TickNumber} during replay");
+                }
             }
             
-            // Run one tick to process this group of commands
+            // Run one tick to process this group of requests
             _world.Tick();
         }
         
-        _logger.LogInformation("Command replay complete. World is now at tick {TickNumber}", _world.GetCurrentTickNumber());
+        _logger.LogInformation("Command request replay complete. World is now at tick {TickNumber}", _world.GetCurrentTickNumber());
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -189,15 +197,15 @@ public class GameSimulationService : BackgroundService, IGameSimulationService
         // Convert request to command with atomic tick assignment and enqueue
         var command = _world.EnqueueCommand(request);
         
-        // Persist the command - if this fails, the command is already enqueued but will be lost on crash
+        // Persist the command request - if this fails, the command is already enqueued but will be lost on crash
         // This is acceptable for now, but can only be fixed with completely atomic processing (from enqueue to
         // persistence). Right now, there's a gap between enqueuing and persistence
         using var scope = _serviceScopeFactory.CreateScope();
         var gamePersistenceService = scope.ServiceProvider.GetRequiredService<IGamePersistenceService>();
         
-        await gamePersistenceService.SaveCommandAsync(command);
-        _logger.LogDebug("Persisted command {CommandType} from player {PlayerId} for tick {TickNumber}", 
-            command.GetType().Name, command.PlayerId, command.TickNumber);
+        await gamePersistenceService.SaveCommandRequestAsync(request);
+        _logger.LogDebug("Persisted command request {RequestType} from player {PlayerId} for tick {TickNumber}", 
+            request.GetType().Name, request.PlayerId, request.ProcessedTickNumber);
         
         return command;
     }

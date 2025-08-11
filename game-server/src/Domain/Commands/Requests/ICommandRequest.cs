@@ -8,4 +8,6 @@ public interface ICommandRequest
 {
     Guid PlayerId { get; }
     DateTime Timestamp { get; }
+    long? ProcessedTickNumber { get; }
+    void SetProcessedTickNumber(long tickNumber);
 }
