@@ -22,7 +22,7 @@ namespace Villagers.GameServer.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
-            modelBuilder.Entity("Villagers.GameServer.Entities.CommandEntity", b =>
+            modelBuilder.Entity("Villagers.GameServer.Entities.CommandRequestEntity", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -55,7 +55,7 @@ namespace Villagers.GameServer.Migrations
 
                     b.HasIndex("TickNumber", "CreatedAt");
 
-                    b.ToTable("Commands");
+                    b.ToTable("CommandRequests");
                 });
 
             modelBuilder.Entity("Villagers.GameServer.Entities.RegistrationIntentEntity", b =>

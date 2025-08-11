@@ -123,6 +123,9 @@ public class World
             var nextTick = TickNumber + 1;
             var timeout = Config.TickInterval * 3; // Enough time to finish this tick and start the next one
             
+            // Set the processed tick number on the request
+            request.SetProcessedTickNumber(nextTick);
+            
             ICommand command = request switch
             {
                 TestCommandRequest testRequest => new TestCommand(testRequest.PlayerId, testRequest.Message, nextTick, timeout),
@@ -134,23 +137,6 @@ public class World
             _commandQueue.EnqueueCommand(command);
             
             return command;
-        }
-    }
-
-    // Keep this method for command replay during world restoration
-    public void EnqueueExistingCommand(ICommand command)
-    {
-        lock (_tickLock)
-        {
-            var expectedTick = TickNumber + 1;
-            if (command.TickNumber != expectedTick)
-            {
-                throw new InvalidOperationException(
-                    $"Command tick number {command.TickNumber} does not match expected tick {expectedTick}. " +
-                    $"Commands must be replayed in correct tick order.");
-            }
-            
-            _commandQueue.EnqueueCommand(command);
         }
     }
 

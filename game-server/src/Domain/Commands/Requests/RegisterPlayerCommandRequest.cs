@@ -2,19 +2,16 @@ using Villagers.GameServer.Domain.Enums;
 
 namespace Villagers.GameServer.Domain.Commands.Requests;
 
-public class RegisterPlayerCommandRequest : ICommandRequest
+public class RegisterPlayerCommandRequest : BaseCommandRequest
 {
-    public Guid PlayerId { get; }
-    public DateTime Timestamp { get; }
     public StartingDirection StartingDirection { get; }
 
     public RegisterPlayerCommandRequest(Guid playerId, StartingDirection startingDirection)
+        : base(playerId)
     {
-        if (playerId == Guid.Empty)
-            throw new ArgumentException("Player ID cannot be empty", nameof(playerId));
+        if (!Enum.IsDefined(typeof(StartingDirection), startingDirection))
+            throw new ArgumentException("Invalid starting direction", nameof(startingDirection));
             
-        PlayerId = playerId;
         StartingDirection = startingDirection;
-        Timestamp = DateTime.UtcNow;
     }
 }

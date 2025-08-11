@@ -1,5 +1,5 @@
 using Villagers.GameServer.Domain;
-using Villagers.GameServer.Domain.Commands;
+using Villagers.GameServer.Domain.Commands.Requests;
 using Villagers.GameServer.Infrastructure.Repositories;
 
 namespace Villagers.GameServer.Services;
@@ -20,10 +20,10 @@ public class GamePersistenceService : IGamePersistenceService
         return await _worldRepository.GetCurrentWorldAsync();
     }
 
-    public async Task<List<List<ICommand>>> GetPersistedCommandsAsync()
+    public async Task<List<List<ReplayableCommandRequest>>> GetReplayableCommandRequestsAsync()
     {
         // Use repository method that performs efficient database-level grouping and ordering
-        return await _commandRepository.GetCommandsGroupedByTickAsync();
+        return await _commandRepository.GetReplayableCommandRequestsGroupedByTickAsync();
     }
 
     public async Task SaveWorldAndClearCommandsAsync(WorldSnapshot worldSnapshot)
@@ -31,13 +31,13 @@ public class GamePersistenceService : IGamePersistenceService
         // Save the world state directly from snapshot data
         await _worldRepository.SaveWorldStateAsync(worldSnapshot);
         
-        // Clear all commands before the current world tick
-        // This maintains only commands since the last world snapshot
-        await _commandRepository.DeleteCommandsBeforeTickAsync(worldSnapshot.TickNumber);
+        // Clear all command requests before the current world tick
+        // This maintains only command requests since the last world snapshot
+        await _commandRepository.DeleteCommandRequestsBeforeTickAsync(worldSnapshot.TickNumber);
     }
 
-    public async Task SaveCommandAsync(ICommand command)
+    public async Task SaveCommandRequestAsync(ICommandRequest commandRequest)
     {
-        await _commandRepository.SaveCommandAsync(command);
+        await _commandRepository.SaveCommandRequestAsync(commandRequest);
     }
 }
